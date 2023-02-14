@@ -14,13 +14,15 @@ needed::
     from abscal.common.utils import absdate
 """
 
-import glob, os, yaml
+import glob, os, sys, yaml
 
 import numpy as np
 
 from astropy.time import Time
 from copy import deepcopy
 from datetime import datetime
+from ruamel.yaml import YAML
+from simpleeval import simple_eval
 
 
 def absdate(pstrtime):
@@ -156,8 +158,9 @@ def get_data_file(module, fname, defaults=False):
             # Fall back to the local version
             return data_file.replace(current_loc, local_loc)
     
-#     msg = "ERROR: File {}.{} not found at {} or {}.\n"
-#     msg = msg.format(module, fname, data_file, data_file.replace(current_loc, local_loc))
+    msg = "ERROR: File {}.{} not found at {} or {}.\n"
+    msg = msg.format(module, fname, data_file, data_file.replace(current_loc, local_loc))
+    sys.stderr.write(msg)
 #     for i in range(5):
 #         data_file = os.path.dirname(data_file)
 #         search_str = os.path.join(data_file, "*")
@@ -266,6 +269,276 @@ def get_defaults(module, *args):
     return defaults
 
 
+def build_expr(value):
+    """
+    Build an expression for ``simple_eval()`` out of a dictionary that's basically in the
+    form of a tree boolean expression.
+    """
+    wildcard_token = "*"
+    source = value.get("source", "")
+    reason = value.get("reason", "")
+    
+    if value["type"].upper() == "NODE":
+        # Leaf node. Make the check
+        search_column = value["column"]
+        search_key = value["key"]
+        if "special" in value:
+            # We're doing something odd. Currently set up for "length:l" which means 
+            # we only care about the first l characters, and "contains", which means
+            # we're checking if the value contains a supplied string.
+            if "length" in inputs["special"]:
+                l = int(inputs["special"].split(":")[1])
+                expr = "{}[:{}] == '{}'".format(search_column, l, search_key)
+            elif inputs["special"] == "contains":
+                expr = "'{}' in {}".format(search_key, search_column)
+            else:
+                print("ERROR: Unknown special column type {}".format(inputs["special"]))
+        else:
+            if wildcard_token in search_key:
+                expr = "{} in '{}'".format(search_column, search_key.replace(wildcard_token, ""))
+            else:
+                expr = "{} {}".format(search_column, search_key)
+    elif value["type"].upper() == "NOT":
+        # Special case -- there will only be a single entry.
+        e, s, r = build_expr(value["entries"][0])
+        expr = "not ({})".format(e)
+        if source != "":
+            source = "{}. {}".format(source, s)
+        else:
+            source = s
+        if reason != "":
+            reason = "{}. {}".format(reason, r)
+        else:
+            reason = r
+    elif value["type"].upper() == "AND":
+        # AND -- combine all of the sub-elements
+        e, s, r = build_expr(value["entries"][0])
+        expr = "({})".format(e)
+        if source != "":
+            source = "{}. {}".format(source, s)
+        else:
+            source = s
+        if reason != "":
+            reason = "{}. {}".format(reason, r)
+        else:
+            reason = r
+        for entry in value["entries"][1:]:
+            e, s, r = build_expr(entry)
+            expr = "{} and ({})".format(expr, e)
+            if source != "":
+                source = "{}. {}".format(source, s)
+            else:
+                source = s
+            if reason != "":
+                reason = "{}. {}".format(reason, r)
+            else:
+                reason = r
+    elif value["type"].upper() == "OR":
+        # OR -- combine all of the sub-elements
+        e, s, r = build_expr(value["entries"][0])
+        expr = "({})".format(e)
+        if source != "":
+            source = "{}. {}".format(source, s)
+        else:
+            source = s
+        if reason != "":
+            reason = "{}. {}".format(reason, r)
+        else:
+            reason = r
+        for entry in value["entries"][1:]:
+            e, s, r = build_expr(entry)
+            expr = "{} or ({})".format(expr, e)
+            if source != "":
+                source = "{}. {}".format(source, s)
+            else:
+                source = s
+            if reason != "":
+                reason = "{}. {}".format(reason, r)
+            else:
+                reason = r
+    
+    return expr, source, reason
+
+
+def value_eval(var, expr):
+    """
+    Return the output when evaluating the variable ``var`` as part of an arithmetic 
+    string. This uses ``simple_eval()``, which is intended to allow only arithmetic 
+    expressions that won't cause performance bottlenecks or system crashes, as a 
+    replacement for the (much more general and dangerous) ``eval()`` function.
+    
+    In general, var will be either a string, a number (integer or floating-point), or a 
+    boolean value, and numbers and boolean values can be treated the same way (strings 
+    must have quotation marks added around ``var``'s value)
+    """
+    wildcard_char = '*'
+    negation_char = '!'
+    
+    if isinstance(var, str):
+        if negation_char in expr:
+            expr = expr.replace(negation_char, "")
+            if wildcard_char in expr:
+                expr = expr.replace(wildcard_char, "")
+                return simple_eval("not ({} in '{}')".format(expr, var))
+            else:
+                return simple_eval("not ('{}' {})".format(var, expr))
+        elif wildcard_char in expr:
+            expr = expr.replace(wildcard_char, "")
+            return simple_eval("{} in '{}'".format(expr, var))
+        return simple_eval("'{}' {}".format(var, expr))
+    return simple_eval("{} {}".format(var, expr))
+
+
+def initialize_value(name, inputs, row, default, verbose):
+    """
+    Initialize a settable parameter, by
+    - Getting an initial value based on a supplied default and a check of the data files
+    - Setting the to-be-used value to the initial value
+    - Returning both
+    """
+    initial_value = default
+    found, value = find_value(name, inputs, row, default=default, verbose=verbose)
+    if found:
+        initial_value = value
+    value = initial_value
+    return initial_value, value
+
+
+def find_value(name, inputs, row, default=None, pre="", verbose=False):
+    """
+    Find a parameter from a nested dictionary, given an optional default value, and
+    return the most applicable value for that parameter.
+    """
+    value = default
+    match_found = False
+    
+    if name in inputs:
+        if verbose:
+            print("{}Found {}".format(pre, name))
+        inputs = inputs[name]
+        if 'parameters' in inputs:
+            # Trunk node
+            if 'value' in inputs:
+                if (name in row) and (value_eval(row[name], inputs['value'])):
+                    if verbose:
+                        print("{}Matched {} ({})".format(pre, name, row[name]))
+                    match_found = True
+            elif 'values' in inputs:
+                if (name in row) and (row[name] in inputs['values']):
+                    if verbose:
+                        print("{}Matched {} ({})".format(pre, name, row[name]))
+                    match_found = True
+            else:
+                match_found = True
+            if match_found:
+                if 'default' in inputs:
+                    value = inputs['default']
+                ordering = inputs['eval_order']
+                inputs = inputs['parameters']
+                for key in ordering:
+                    if verbose:
+                        print("{}Checking {}".format(pre, key))
+                    local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                    if local_match_found:
+                        match_found = True
+                        value = value_found
+                        break
+        elif 'user' in inputs:
+            # leaf note, user override
+            if verbose:
+                name = inputs['user']['name']
+                date = inputs['user']['date']
+                result = inputs['user']['param_value']
+                reason = inputs['user']['reason']
+                msg = "{}User Override: {} on {} set value to {} because {}"
+                print(msg.format(pre, name, date, result, reason))
+            value = inputs['user']['param_value']
+            match_found = True
+        elif 'value' in inputs:
+            # Leaf node, single-expression
+            if (name in row) and (value_eval(row[name], inputs['value'])):
+                value = inputs['param_value']
+                match_found = True
+                if verbose:
+                    msg = "{}Setting {} to {} based on {} because {}"
+                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+        elif 'values' in inputs:
+            # Leaf node, multi-value list
+            if (name in row) and (row[name] in inputs['values']):
+                value = inputs['param_value']
+                match_found = True
+                if verbose:
+                    msg = "{}Setting {} to {} based on {} because {}"
+                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+        else:
+            if verbose:
+                msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
+                print(msg.format(pre, inputs, value))
+    
+    if verbose:
+        print("{}Returning {} ({})".format(pre, value, match_found))
+    return match_found, value
+
+
+def set_override(name, inputs, row, uname, value, reason):
+    """
+    Set a user override on a parameter
+    """
+    user_dict = {'name': uname,
+                 'date': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                 'param_value': value,
+                 'reason': reason}
+    
+    if name not in inputs:
+        inputs[name] = {'eval_order': ['root'], 'parameters': {}}
+    p = inputs[name]['parameters']
+    if root not in p:
+        p['root'] = []
+    leaf_found = False
+    for item in p['root']:
+        if 'value' in item:
+            # Leaf node, single-expression
+            if value_eval(row['root'], item['value']):
+                item['user'] = user_dict
+                return
+        elif 'values' in item:
+            # Leaf node, multi-value list. Since we're overriding this-one-only, REMOVE
+            # from list.
+            if row['root'] in item['values']:
+                item['values'].remove(row['root'])
+    item_entry = {'value': "== '{}'".format(row['root']),
+                  'user': user_dict}
+    p['root'].append(item_entry)
+    
+    return inputs
+
+
+def handle_parameter(name, start_value, current_value, file, row):
+    """
+    Check whether the user has changed a parameter. If they have, ask whether they want to
+    update the reference file. If they do, update the file.
+    """
+    if start_value != current_value:
+        done = False;
+        while not done:
+            print("You changed {} from {} => {}.".format(name, start_value, current_value))
+            response = input("Do you want to save this change to the data file? (y/N)")
+            if response.lower() in ["y", "yes"]:
+                rname = input("Please enter a name for the change: ")
+                reason = input("Please enter a reason for the change: ")
+                yaml = YAML()
+                with open(file) as inf:
+                    config = yaml.load(inf)
+                set_override(name, config, row, rname, current_value, reason)
+                with open(file, mode="w") as outf:
+                    yaml.dump(config, outf)
+                print("Changed value for {}".format(row['root']))
+            elif response.lower() in ["n", "no"]:
+                print("Value not saved.")
+            else:
+                print("Unknown response {}".format(response))
+
+
 def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
     """
     Set a parameter value
@@ -298,19 +571,41 @@ def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
         The appropriate value for the parameter given
     """
     value = default
-    if param in issues:
-        issue_list = issues[param]
-        for item in issue_list:
-            val_len = len(item["value"])
-            if row[item["column"]][:val_len] == item["value"]:
-                value = item["param_value"]
-                if verbose:
-                    reason = item["reason"]
-                    source = item["source"]
-                    msg = "{}: changed {} to {} because {} from {}"
-                    print(msg.format(pre, param, value, reason, source))
-    if param in overrides:
-        value = overrides[param]
+    try:
+        if param in issues:
+            issue_list = issues[param]
+            for item in issue_list:
+                comp_value = row[item["column"]]
+                if isinstance(item["value"], str):
+                    comp_value = comp_value[:len(item["value"])]
+                if comp_value == item["value"]:
+                    if verbose:
+                        reason = item["reason"]
+                        source = item["source"]
+                        msg = "{}: changed {} {}=>{} because {} from {}"
+                        print(msg.format(pre, param, value, item["param_value"], reason, source))
+                    value = item["param_value"]
+        if param in overrides:
+            if verbose:
+                msg = "{}: changed {} {}=> by user override"
+                print(msg.format(pre, param, value, overrides[param]))
+            value = overrides[param]
+    except Exception as e:
+        print("ERROR in set_param(). Arguments are:")
+        print("\tparam={}".format(param))
+        print("\tdefault={}".format(default))
+        print("\trow:\n")
+        print(row)
+        print("\n")
+        print("\tissues:\n")
+        print(issues)
+        print("\n")
+        print("\tpre={}".format(pre))
+        print("\toverrides:\n")
+        print(overrides)
+        print("\n")
+        print("\tverbose={}".format(verbose))
+        raise e
 
     return value
 
@@ -393,29 +688,28 @@ def set_image(images, row, issues, pre, overrides={}, verbose=False):
         found = False
         if issue["column"] in row:
             if isinstance(issue["column"], str):
-                issue_len = len(issue["key"])
-                if issue["key"] == row[issue["column"]][:issue_len]:
+                issue_len = len(issue["value"])
+                if issue["value"] == row[issue["column"]][:issue_len]:
                     found = True
             else:
-                if issue["key"] == row[issue["column"]]:
+                if issue["value"] == row[issue["column"]]:
                     found = True
         if found:
-            for item in issue["changes"]:
-                if len(item["x"]) > 1:
-                    x1, x2 = item["x"][0], item["x"][1]+1
-                else:
-                    x1, x2 = item["x"][0], item["x"][0]+1
-                if len(item["y"]) > 1:
-                    y1, y2 = item["y"][0], item["y"][1]+1
-                else:
-                    y1, y2 = item["y"][0], item["y"][0]+1
-                images[item["ext"]][y1:y2,x1:x2] = item["value"]
-                if verbose:
-                    reason = issue["reason"]
-                    source = issue["source"]
-                    value = issue["value"]
-                    msg = "{}: changed ({}:{},{}:{}) to {} because {} from {}"
-                    print(msg.format(pre, y1, y2, x1, x2, value, reason, source))
+            if len(issue["x"]) > 1:
+                x1, x2 = issue["x"][0], issue["x"][1]
+            else:
+                x1, x2 = issue["x"][0], issue["x"][0]+1
+            if len(issue["y"]) > 1:
+                y1, y2 = issue["y"][0], issue["y"][1]
+            else:
+                y1, y2 = issue["y"][0], issue["y"][0]+1
+            images[issue["ext"]][y1:y2,x1:x2] = issue["value"]
+            if verbose:
+                reason = issue["reason"]
+                source = issue["source"]
+                value = issue["value"]
+                msg = "{}: changed ({}:{},{}:{}) to {} because {} from {}"
+                print(msg.format(pre, y1, y2, x1, x2, value, reason, source))
 
 
     return images

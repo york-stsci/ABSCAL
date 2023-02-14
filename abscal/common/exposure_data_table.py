@@ -41,7 +41,11 @@ from astropy.table import Table, Column
 from astropy.time import Time
 from copy import deepcopy
 from datetime import datetime as dt
+from distutils.util import strtobool
 from pathlib import Path
+from simpleeval import simple_eval
+
+from .utils import build_expr
 
 
 def scan_rate_formatter(scan_rate):
@@ -106,7 +110,8 @@ class AbscalDataTable(Table):
         # Persistent Metadata
         self.create_time, kwargs = self._get_kwarg('create_date', datetime.datetime.now(),
                                                    kwargs)
-        self.search_str, kwargs = self._get_kwarg('search_str', 'i*flt.fits', kwargs)
+        self.search_str, kwargs = self._get_kwarg('search_str', self.default_search_str, 
+                                                  kwargs)
         search_dirs, kwargs = self._get_kwarg('search_dirs', os.getcwd(), kwargs)
         if isinstance(search_dirs, str):
             search_dirs = [search_dirs]
@@ -154,27 +159,12 @@ class AbscalDataTable(Table):
             The populated table
         """
         parse_str = "%y-%m-%d %H:%M:%S"
-        parse_creation_date = "WFCDIR %d-%b-%Y %H:%M:%S"
+        parse_creation_date = "{} %d-%b-%Y %H:%M:%S".format(cls.idl_str)
 
-        idl_column_start = (
-                            0,
-                            11,
-                            19,
-                            35, 
-                            41, 
-                            54, 
-                            64, 
-                            73, 
-                            82, 
-                            89, 
-                            98, 
-                            112
-                           )        
-        
         # Read in the IDL-format table as undifferentiated ASCII
         idl_table = ascii.read(table_file, 
                                format="fixed_width",
-                               col_starts=idl_column_start)
+                               col_starts=cls.idl_columns)
         
         # Read in the available metadata
         with open(table_file, 'r') as inf:
@@ -193,28 +183,33 @@ class AbscalDataTable(Table):
         
         for row in idl_table:
             row_data = {}
-            for col_name in AbscalDataTable.column_mappings.keys():
-                row_data[AbscalDataTable.column_mappings[col_name]] = row[col_name]
+            for col_name in cls.column_mappings.keys():
+                row_data[cls.column_mappings[col_name]] = row[col_name]
             row_data['obset'] = row_data['root'][:6]
             file_name = '{}_{}'.format(row_data['root'], search_pattern[-8:])
             if len(glob.glob(os.path.join(search_path, row_data['root']+'*.fits'))) > 0:
                 row_data['path'] = search_path
-                for ext in ['flt', 'ima', 'raw']:
+                for ext in cls.idl_exts:
                     file_name = '{}_{}.fits'.format(row_data['root'], ext)
                     if os.path.isfile(os.path.join(search_path, file_name)):
                         row_data['filename'] = file_name
                         break
-            row_data['xsize'] = int(row['IMG SIZE'][:4].strip())
-            row_data['ysize'] = int(row['IMG SIZE'][5:].strip())
+            if 'IMG SIZE' in row:
+                row_data['xsize'] = int(row['IMG SIZE'][:4].strip())
+                row_data['ysize'] = int(row['IMG SIZE'][5:].strip())
             row_data['date'] = dt.strptime("{} {}".format(row["DATE"], row["TIME"]), 
                                            parse_str)
-            row_data['postarg1'] = float(row["POSTARG X,Y"][:5].strip())
-            row_data['postarg2'] = float(row["POSTARG X,Y"][8:].strip())
+            if 'POSTARG X,Y' in row:
+                row_data['postarg1'] = float(row["POSTARG X,Y"][:5].strip())
+                row_data['postarg2'] = float(row["POSTARG X,Y"][8:].strip())
+            elif 'POSTARG' in row:
+                row_data['postarg'] = float(row["POSTARG"].strip())
             row_data['notes'] = "Imported from IDL-style Table"
             table.add_exposure(row_data)
 
         # Now that we've made the table, set the filter images if possible.
-        table.set_filter_images()
+        if cls.instrument == 'wfc3ir':
+            table.set_filter_images()
         
         return table
     
@@ -291,6 +286,10 @@ class AbscalDataTable(Table):
                 if (not idl) and (default != 'N/A'):
                     metadata_dict[column] = default
         
+        for column in metadata_dict:
+            if column not in self.standard_columns:
+                print("ERROR: Unknown Column {}".format(column))
+        
         # If this is a duplicate entry (same root exists in table already), treat it 
         # according to the duplicate policy. Otherwise, pass along to add_row().
         if metadata_dict['root'] in self['root']:
@@ -357,14 +356,16 @@ class AbscalDataTable(Table):
         # There may be exposures that are just bad, and need to not be used. Rather than
         # remove those rows, we set the "use" flag to False. We also add the reason that
         # the exposure needed to be removed, as found in the adjustment dictionary.
-        reasons = []
         for item in adjustments['delete']:
-            if item["key"] in self[item["column"]]:
-                masked = self[self[item["column"]] == item["value"]]
-                masked["use"] = False
-                reason = removal_str.format(item["reason"], item["source"])
-                new_notes = ["{} {}".format(x, reason) for x in masked["notes"]]
-                masked["notes"][:] = new_notes[:]
+            expression, source, reason = build_expr(item)
+            explanation = removal_str.format(source, reason)
+            for row in self:
+                if simple_eval(expression, names=row):
+                    row["use"] = False
+                    if row["notes"] != "":
+                        row["notes"] = "{}. {}".format(row["notes"], explanation)
+                    else:
+                        row["notes"] = explanation
         
         # Currently the only supported edits are replacement or appending.
         for item in adjustments['edit']:
@@ -638,7 +639,7 @@ class AbscalDataTable(Table):
             The table that was read in.
         """
         if idl_mode:
-            return AbscalDataTable.from_idl_table(file_name)
+            return self.from_idl_table(file_name)
         format = kwargs.get('format', self.default_format)
         
         t = Table()
@@ -652,8 +653,7 @@ class AbscalDataTable(Table):
         return t
 
         
-    @staticmethod
-    def _write_to_idl(file_name, table, **kwargs):
+    def _write_to_idl(self, file_name, table, **kwargs):
         """
         Write the table in strict IDL mode. This mode uses different columns (which 
         are sometimes combinations of several variables that need to be separated for 
@@ -675,21 +675,7 @@ class AbscalDataTable(Table):
             return
         parse_str = "%Y-%m-%dT%H:%M:%S.000"
         
-        column_formats = {
-                            "ROOT": "<10",
-                            "MODE": "<7",
-                            "APER": "<15",
-                            "TYPE": "<5",
-                            "TARGET": "<12",
-                            "IMG SIZE": "<9",
-                            "DATE": "<8",
-                            "TIME": "<8",
-                            "PROPID": "<6",
-                            "EXPTIME": "7.1f",
-                            "POSTARG X,Y": ">14",
-                            "SCAN_RAT": scan_rate_formatter
-                         }
-        
+        column_formats = self.idl_column_formats
         columns = column_formats.keys()
 
         if isinstance(table["date"][0], str):
@@ -738,7 +724,7 @@ class AbscalDataTable(Table):
         with open(file_name, 'r+') as table_file:
             content = table_file.read()
             table_file.seek(0, 0)
-            table_file.write("# WFCDIR {}\n".format(date_str))
+            table_file.write("# {} {}\n".format(self.idl_str, date_str))
             for search_dir in search_dirs:
                 full_search_str = os.path.join(search_dir, search_str)
                 table_file.write("# SEARCH FOR {}\n".format(full_search_str))
@@ -781,6 +767,12 @@ class AbscalDataTable(Table):
         for col in self.itercols():
             if col.dtype.kind in 'SU':
                 self.replace_column(col.name, col.astype('object'))
+            if self.standard_columns[col.name]['dtype'] == '?':
+                if col.dtype.kind in 'fib':
+                    new_values = [bool(x) for x in col]
+                else:
+                    new_values = [bool(strtobool(x)) for x in col]
+                self.replace_column(col.name, new_values)
     
 
     column_mappings = {
@@ -799,6 +791,26 @@ class AbscalDataTable(Table):
                       }
     
     default_format = 'ascii.ipac'
+    
+    instrument = 'wfc3ir'
+    default_search_str = 'i*flt.fits'
+    idl_str = 'WFCDIR'
+    idl_columns = (0, 11, 19, 35, 41, 54, 64, 73, 82, 89, 98, 112)
+    idl_exts = ['flt', 'ima', 'raw']
+    idl_column_formats = {
+                            "ROOT": "<10",
+                            "MODE": "<7",
+                            "APER": "<15",
+                            "TYPE": "<5",
+                            "TARGET": "<12",
+                            "IMG SIZE": "<9",
+                            "DATE": "<8",
+                            "TIME": "<8",
+                            "PROPID": "<6",
+                            "EXPTIME": "7.1f",
+                            "POSTARG X,Y": ">14",
+                            "SCAN_RAT": scan_rate_formatter
+                         }
     
     standard_columns = {
                             'root': {'dtype': 'O', 'idl': True},

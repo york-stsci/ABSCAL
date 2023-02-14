@@ -21,6 +21,47 @@
 # sky co-ordinates, and there are two stars with the *exact* same distance to the 
 # co-ordinates you specified in your search, then the first will be returned. This should
 # never actually be an issue in practice.
+- name: FEIGE110
+  names:
+  - FEIGE110
+  - Feige 110
+  - GJ-894.3
+  ra: 349.99333129
+  dec: -5.16560278
+  pm_ra: -10.68
+  pm_dec: 0.31
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: ETAUMA
+  names:
+  - ETAUMA
+  - HD120315
+  - eta UMa
+  ra: 206.88515733
+  dec: 49.31326667
+  pm_ra: -121.17
+  pm_dec: -14.91
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: SDSSJ151421
+  names:
+  - SDSSJ151421
+  - SDSSJ151
+  - SDSSJ151421.27+004752.8
+  - LB 769
+  - LB769
+  ra: 228.58863633 
+  dec: 0.79800333
+  pm_ra: 4.400
+  pm_dec: -27.041
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
 - name: GAIA587_3008
   names:
   - GAIA587_3008
@@ -43,6 +84,7 @@
   pm_dec: 3.51
   pm_ra: -4.783
   ra: 269.6278
+# White Dwarf Standard Star
 - coord_epoch: J2000
   coord_type: icrs
   dec: 22.0313
@@ -54,6 +96,7 @@
   pm_dec: -202.953
   pm_ra: -38.41
   ra: 194.2597
+# White Dwarf Standard Star
 - coord_epoch: J2000
   coord_type: icrs
   dec: 15.887
@@ -65,6 +108,7 @@
   pm_dec: -172.944
   pm_ra: 76.841
   ra: 88.1151
+# White Dwarf Standard Star
 - coord_epoch: J2000
   coord_type: icrs
   dec: 52.8311
@@ -318,6 +362,18 @@
   pm_dec: -10.952
   pm_ra: -2.911
   ra: 244.9421
+- name: SNAP-1
+  names:
+  - SNAP-1
+  - SNAP7
+  ra: 247.39490833
+  dec: 52.93140000
+  pm_ra: 0.0
+  pm_dec: 0.0
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
 - coord_epoch: J2000
   coord_type: gal
   dec: -27.8635
@@ -342,6 +398,9 @@
   pm_dec: 0.0
   pm_ra: 0.0
   ra: 243.54954
+# This is a target that is found in WFC3 data and that has a corrected name and
+# set of co-ordinates defined in wfcdir.pro, but I can't find it in the GAIA archive, 
+# which is odd to say the least.
 - coord_epoch: J2000
   coord_type: icrs
   dec: -58.453704
@@ -401,6 +460,204 @@
   pm_ra: 0.0
   ra: 291.09266258
   radial_velocity: -71.0
+- name: GSC91630731
+  names:
+  - GSC91630731
+  - GSC-09163-00731
+  - GSC 09163-00731
+  - SK-68 155
+  - SK -68 155
+  ra: 85.72892950
+  dec: -68.94846694
+  pm_ra: 1.488
+  pm_dec: 1.011
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GSC91631003
+  names:
+  - GSC91631003
+  - GSC-09163-01003
+  - GSC 09163-01003
+  - W61 27-56
+  ra: 84.11156425
+  dec: -68.95889944
+  pm_ra: 1.446
+  pm_dec: 0.709
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GSC91630810
+  names:
+  - GSC91630810
+  - GSC-09163-00810
+  - GSC 09163-00810
+  - SK-69 256
+  - SK -69 256
+  ra: 84.98221217
+  dec: -69.27385778
+  pm_ra: 1.760
+  pm_dec: 0.745
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GSC91620972
+  names:
+  - GSC91620972
+  - GSC-09162-00972
+  - GSC 09162-00972
+  - SK-69 206
+  - SK -69 206
+  ra: 83.89988258
+  dec: -69.11848667
+  pm_ra: 1.225
+  pm_dec: 0.708
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GSC91630895
+  names:
+  - GSC91630895
+  - GSC-09163-00895
+  - GSC 09163-00895
+  - W61 27-27
+  ra: 84.01580304
+  dec: -69.02503028
+  pm_ra: 1.526
+  pm_dec: 0.556
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GSC37121870
+  names:
+  - GSC37121870
+  - GSC-03712-01870
+  - GSC 03712-01870
+  ra: 42.34293604
+  dec: 58.44561556 
+  pm_ra: -0.521
+  pm_dec: 0.729
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: MFHSMC5398
+  names:
+  - MFHSMC5398
+  - MFH2007-SMC5-398
+  - "[MFH2007] SMC5-398"
+  - MFH2007-SMC5-000398
+  - "[MFH2007] SMC5-000398"
+  ra: 13.51112987 
+  dec: -72.42799083
+  pm_ra: 0.741
+  pm_dec: -1.444
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: MFHSMC582923
+  names:
+  - MFHSMC582923
+  - MFH2007-SMC5-82923
+  - "[MFH2007] SMC5-82923"
+  - MFH2007-SMC5-082923
+  - "[MFH2007] SMC5-082923"
+  ra: 13.35902738
+  dec: -72.19444083
+  pm_ra: 0.864
+  pm_dec: -1.408
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GAIA405_1056
+  names:
+  - GAIA405_1056
+  - GAIA-DR2-4057241204098861056
+  - GAIA DR2 4057241204098861056
+  ra: 267.318668987606
+  dec: -29.20935945525504
+  pm_ra: -1.3214575867923717
+  pm_dec: -2.9703181727025285
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GAIA587_0224
+  names:
+  - GAIA587_0224
+  - GAIA-DR2-5876908621389460224
+  - GAIA DR2 5876908621389460224
+  ra: 230.18542670167787
+  dec: -58.45179571141222
+  pm_ra: -3.318415024133623
+  pm_dec: -3.6411001429497043
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GAIA587_7024
+  names:
+  - GAIA587_7024
+  - GAIA-DR2-5878012835951377024
+  - GAIA DR2 5878012835951377024
+  ra: 223.7626658501068
+  dec: -60.21135554546158
+  pm_ra: -3.655648312173391
+  pm_dec: -2.121250038985438
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GAIA588_7632
+  names:
+  - GAIA588_7632
+  - GAIA-DR2-5885213881202037632
+  - GAIA DR2 5885213881202037632
+  ra: 234.5719906629821
+  dec: -54.513993556832496
+  pm_ra: -4.786571207828176
+  pm_dec: -3.855644625952711
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+- name: GAIA593_1968
+  names:
+  - GAIA593_1968
+  - GAIA-DR2-5934903938409251968
+  - GAIA DR2 5934903938409251968
+  ra: 243.54051996687184
+  dec: -51.787455916070705
+  pm_ra: -2.414159725123958
+  pm_dec: -4.055191930210072
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 0.0
+# GAIA targets that can't currently be found in MAST.
+# GAIA593_9680
+# GAIA587_3008
+
+# Specifically called out in the STIS spectroscopy section
+- name: HZ43B
+  names:
+  - HZ43A
+  - HZ43
+  ra: 199.09105412
+  dec: 29.09872583
+  pm_ra: -157.768
+  pm_dec: -107.310
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: 54.17
 - name: HR7018
   names:
   - HR7018
@@ -485,3 +742,33 @@
   pm_dec: 286.23
   planetary_nebula: false
   radial_velocity: -20.60
+- name: Vega
+  names:
+  - HD172167
+  - HD 172167
+  - Alpha Lyra
+  - HD172167-V6
+  ra: 279.23473479
+  dec: 38.78368889
+  pm_ra: 200.94
+  pm_dec: 286.23
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: -20.60
+- name: Sirius
+  names:
+  - Sirius
+  - ALF CMAB
+  - ALP-CMA
+  - GL0244AB
+  - HD 48915
+  - HD48915
+  ra: 101.28715533
+  dec: -16.71611583
+  pm_ra: -546.01
+  pm_dec: -1223.07
+  coord_epoch: J2000
+  coord_type: icrs
+  planetary_nebula: false
+  radial_velocity: -5.50
