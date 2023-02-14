@@ -28,8 +28,19 @@ setup(
     version = version_str,
     scripts=glob.glob("abscal/commands/*"),
     package_data =  {
-                        "": ["data/*", "data/defaults/*"],
-                        "wfc3": ["data/pnref/*"]
+                        "": ["data/*", 
+                             "data/defaults/*", 
+                             "idl_code", 
+                             "idl_code/*",
+                             "idl_code/common/*", 
+                             "idl_code/cookbooks/*", 
+                             "idl_code/stis/*",
+                             "idl_code/stis/calstis/*", 
+                             "idl_code/stis/manual/*",
+                             "idl_code/wfc3/*"],
+                        "wfc3": ["data/*",
+                                 "data/pnref/*",
+                                 "data/wfcref/*"]
                     },
     include_package_data=True
     )

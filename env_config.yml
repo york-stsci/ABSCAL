@@ -62,7 +62,7 @@ env:
     vars:
         - CRDS_PATH: "${HOME}/crds_cache/"          # Local CRDS cache
         - oref: "${CRDS_PATH}/references/hst/oref/" # STIS data location
-        - WFCREF: "${abscal_PKG}/wfc3/data/"        # WFC3 reference data for IDL
+        - WFCREF: "${abscal_PKG}/wfc3/data/WFCREF"  # WFC3 reference data for IDL
         - idl_base: "${abscal_PKG}/idl_code"        # Location of IDL code
         - idl_common: "${idl_base}/common/"         # General IDL code
         - idl_stis: "${idl_base}/stis"              # STIS-specific IDL code
