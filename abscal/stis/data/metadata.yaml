@@ -1,0 +1,214 @@
+# This file contains table metadata edits for STIS.
+#
+# Currently supported metadata changes are:
+#   - edit: change the value of a table column for a specific exposure or exposures
+#   - delete: set the "use" flag to False for a specific exposure or exposures. Does not
+#             actually remove them from the table, but they will not be used for any 
+#             part of the reduction.
+#
+# Individual entries have the form:
+#
+#   - type: node
+#     column: <column>
+#     key: <value>
+#     [operation: <operation>]
+#     [value: value]
+#     reason: <reason>
+#     source: source
+#
+# Where "column" specifies the column to look at in the table, "key" specifies the value 
+# or values to look for, reason is a string where you should provide the reason that the 
+# edit is needed, and source is a string specifying where the edit came from (if it came 
+# from one of Ralph's IDL files). Source should be set to N/A if there isn't such a source 
+# specified.
+#
+# It's also possible to build compound expressions from entries, and in that case the form
+# will be:
+#
+#   - type: <operation>
+#     [reason: <reason>]
+#     [source: <source>]
+#     entries:
+#     - e1
+#     - ...
+#     - eN
+#
+# Where "operation" is one of AND, OR, or NOT, and the "entries" list holds a list all of
+# whose elements are either node entries (above) or other compound entries. The reason and
+# source entries are the same as in a node, and will be applied to all entries within the
+# compound expression.
+#
+# The "operation" and "value" keywords are only used for edits. "operation" specifies 
+# what the edit should be (currently one of "replace" or "append"), and "value" is either
+# a string of the form "old->new" (where "old" and "new" are the current value and the 
+# desired value respectively), or a string containing the value to append to each matching 
+# entry.
+
+delete:
+      - type: node
+        column: mode
+        key: "*MIR*"
+        source: preproc.pro
+        reason: Imaging
+      - type: node
+        column: obsmode
+        key: "== 'ACQ'"
+        source: BY, 2023-01-05
+        reason: Can't extract a spectrum from an imaging ACQ
+      - type: node
+        column: central_wavelength
+        key: "== 8975.0"
+        source: preproc.pro
+        reason: None provided
+      - type: node
+        column: target
+        key: "== 'NONE'"
+        source: preproc.pro
+        reason: None provided
+      - type: AND
+        source: preproc.pro
+        reason: Only allow P041C exposures with postarg != 0, as best available. Allow oe3f01030 as a special test of off-centre G750L
+        entries:
+          - type: OR
+            entries:
+            - type: node
+              column: raw_postarg
+              key: "< -1."
+            - type: node
+              column: raw_postarg
+              key: "> 1."
+          - type: OR
+            entries:
+            - type: NOT
+              entries:
+              - type: node
+                column: raw_postarg
+                key: "== 3"
+            - type: NOT
+              entries:
+              - type: node
+                column: mode
+                key: "== 'G140L'"
+          - type: NOT
+            entries:
+            - type: node
+              column: target
+              key: "== 'P041C'"
+          - type: NOT
+            entries:
+            - type: node
+              column: root
+              key: "== 'oe3f01030'"
+      - type: node
+        column: obsmode
+        key: "== 'ACQ/PEAK'"
+        source: preproc.pro
+        reason: None provided
+      - type: AND
+        source: preproc.pro
+        reason: None provided
+        entries:
+          - type: node
+            column: target
+            key: "== 'CCDFLAT'"
+          - type: NOT
+            entries:
+            - type: node
+              column: filename
+              key: "*ccdflat*"
+      - type: AND
+        source: preproc.pro
+        reason: None provided
+        entries:
+          - type: node
+            column: mode
+            key: "== 'G750L'"
+          - type: NOT
+            entries:
+            - type: node
+              column: target
+              key: "== '2M0036+18'"
+          - type: NOT
+            entries:
+            - type: node
+              column: target
+              key: "*GAIA*"
+          - type: node
+            column: aperture
+            key: "*E1*"
+      - type: AND
+        source: preproc.pro
+        reason: Prism mode
+        entries:
+          - type: node
+            column: mode
+            key: "*M*"
+          - type: NOT
+            entries:
+            - type: node
+              column: root
+              key: "oe9l*"
+      - type: AND
+        source: preproc.pro
+        reason: Remove most 0.5" slit exposures
+        entries:
+          - type: node
+            column: aperture
+            key: "*.*"
+          - type: NOT
+            entries:
+            - type: node
+              column: root
+              key: "== 'obto03010'"
+          - type: NOT
+            entries:
+            - type: OR
+              entries:
+              - type: node
+                column: root
+                special: "length:4"
+                key: "oc8c"
+              - type: node
+                column: root
+                special: "length:4"
+                key: "od6j"
+              - type: node
+                column: root
+                special: "length:4"
+                key: "odi9"
+              - type: node
+                column: root
+                special: "length:4"
+                key: "ocy5"
+              - type: node
+                column: root
+                special: "length:4"
+                key: "oe9l"
+          - type: NOT
+            entries:
+            - type: node
+              column: filename
+              special: "contains"
+              key: 'ccdflat'
+      - type: node
+        source: preproc.pro
+        reason: "02mar26 - 6x6 early aper not used for std *, just transm. Findfringe fails??"
+        column: aperture
+        key: "== '6X6'"
+      - type: node
+        source: preproc.pro
+        reason: "pstrtime MAMA turn-on yr.ddd"
+        column: date
+        key: "< '1997-05-18'"
+
+edit: []
+
+# delete:
+#     - column: obset
+#       key: ic6907
+#       source: prewfc.pro
+#       reason: VY2 Bad WL Testing
+#     - column: root
+#       key: iab907jdq
+#       source: wfc_process.pro
+#       reason: POSTARG has wrong sign
