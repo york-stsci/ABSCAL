@@ -12,8 +12,8 @@ setup(
     name = 'abscal',
     description = 'HST WFC3 and STIS absolute flux calibration',
     url = 'https://github.com/spacetelescope/ABSCAL',
-    author = 'Brian York, Ralph Bohlin, Susana Deustua',
-    author_email = 'york@stsci.edu, bohlin@stsci.edu, deustua@stsci.edu',
+    author = 'Brian York, Ralph Bohlin, Susana Deustua, Karl Gordon',
+    author_email = 'york@stsci.edu, bohlin@stsci.edu, deustua@stsci.edu, kgordon@stsci.edu',
     keywords = ['astronomy'],
     classifiers = ['Programming Language :: Python'],
     packages = find_packages(),
@@ -23,7 +23,10 @@ setup(
                         "astropy>=3", 
                         "photutils",
                         "matplotlib",
-                        "rebin"
+                        "rebin",
+                        "stistools",
+                        "hstcal",
+                        "astroquery"
                        ],
     version = version_str,
     scripts=glob.glob("abscal/commands/*"),
