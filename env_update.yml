@@ -21,7 +21,6 @@ name: abscal
 channels:
   - conda-forge
   - astropy
-  - http://ssb.stsci.edu/astroconda
   - defaults
 
 dependencies:
@@ -50,8 +49,10 @@ dependencies:
     - nbsphinx
     - pyyaml
     - ipympl
+    - simpleeval
+    - ruamel.yaml
     - -e .
 
-#variables:
-#  WFC3_REF: "NEEDS TO BE A RELATIVE PATH"
+variables:
+  CRDS_SERVER_URL: "https://hst-crds.stsci.edu"
 

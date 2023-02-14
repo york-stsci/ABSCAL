@@ -1,0 +1,72 @@
+# Configuration file for setting up the STENV environment with local additions.
+#
+# Written by: Brian York <york@stsci.edu>
+# Written for: ABSCAL project
+#
+# This configuration is intended to be used with the "stenv_setup.py" python script. That
+# script, in turn, is intended to do the following:
+#
+#   - Setup a conda environment based on STENV, using the most recent release tag
+#   - Modify that environment based on a local environment.yml file
+#   - Set up environment variables for use when the environment is activated
+#
+# The environment variables are specifically added to the 
+#
+#   $CONDA_DIR/envs/ENV_NAME/etc/conda/activate.d/activate.sh
+#   $CONDA_DIR/envs/ENV_NAME/etc/conda/deactivate.d/deactivate.sh
+#
+# files.
+#
+# For the moment, the values in this file are trying to be self-documenting.
+
+# For ABSCAL, there are a few additional notes.
+#   - ABSCAL is intended to support IDL as well as python, so a lot of things are added
+#     to the $IDL_PATH environment variable.
+#   - ABSCAL may be installed either as editable or not, and the IDL code included has
+#     been folded in to the ABSCAL python package, so a lot of IDL variables are pointing
+#     in to the python package, wherever it's installed.
+
+# Configuration of STENV and the local environment
+base: 
+    name: "abscal"              # the name of the package, and of the environment to create
+    package_name: "abscal"      # the name of the python module in the repository
+    stream: "stable"            # one of stable/dev/latest
+    python_version: "3.10"      # currently one of 3.8, 3.9, 3.10, or 3.11
+    conda_path: "${HOME}/conda" # if conda is not installed, where to install it.
+    local_env: "env_update.yml" # local environment file to use to update STENV
+    # This URL is used for getting a JSON file that has release tags in it.
+    info_url: "https://api.github.com/repos/spacetelescope/stenv/releases/latest"
+    # This URL is used for actually *getting* to the environment file.
+    stenv_url: "https://github.com/spacetelescope/stenv/releases/download"
+    # Latest miniconda
+    conda_url: "https://repo.anaconda.com/miniconda/Miniconda3-latest-{}-{}.sh"
+
+# Configuration of environment variables
+#
+# Note that the "special" environment variables are always set up before the more general
+# list, so by the time you're adding in the general list, you already have access to all
+# of the special variable names.
+env:
+    # This contains environment variables that need special processing of one sort or 
+    # another.
+    special:
+        # Including "package" means that an environment variable will be set up to point
+        # to the installation location of the python package itself. The variable will be 
+        # named "<NAME>_PKG" where <NAME> is the name in "base:name:" above. If you want 
+        # to use this, your local environment file should install itself (i.e. in 
+        # 'pip dependencies' include either "- ." or "- -e .")
+        - package
+    # This is the list of environment variables to set. Order can matter here in the 
+    # sense that variables will be added to the setup file in order, so a later variable
+    # can refer to a previous variable.
+    vars:
+        - CRDS_PATH: "${HOME}/crds_cache/"          # Local CRDS cache
+        - oref: "${CRDS_PATH}/references/hst/oref/" # STIS data location
+        - WFCREF: "${abscal_PKG}/wfc3/data/"        # WFC3 reference data for IDL
+        - idl_base: "${abscal_PKG}/idl_code"        # Location of IDL code
+        - idl_common: "${idl_base}/common/"         # General IDL code
+        - idl_stis: "${idl_base}/stis"              # STIS-specific IDL code
+        - idl_calstis: "${idl_base}/stis/calstis"   # IDL calstis package
+        - idl_wfc: "${idl_base}/wfc3"               # WFC3-specific IDL code
+        # IDL path – keep the existing path and add all of the above items
+        - IDL_PATH: "${idl_stis}:${idl_calstis}:${idl_wfc}:${IDL_PATH}"
