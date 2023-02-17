@@ -25,7 +25,8 @@ setup(
                         "matplotlib",
                         "rebin",
                         "stistools",
-                        "hstcal",
+                        # Removed because it's not on pip
+#                         "hstcal",
                         "astroquery"
                        ],
     version = version_str,

@@ -59,9 +59,15 @@ def main(**kwargs):
     msg = "Creating {} environment for python {}\n"
     sys.stdout.write(msg.format(conf['name'], conf['python_version']))
     
-    # Find the URL of the latest STScI release tag
-    json_data = json.loads(urlopen(conf['info_url']).read())
-    stenv_tag = json_data['tag_name']
+    sys.stdout.write("Fetching latest tag from github.\n")
+    try:
+        # Find the URL of the latest STScI release tag
+        json_data = json.loads(urlopen(conf['info_url']).read())
+        stenv_tag = json_data['tag_name']
+    except Exception as e:
+        sys.stderr.write("Retrieval error: {}\n".format(e))
+        stenv_tag = conf["latest_known_tag"]
+        sys.stdout.write("\tFalling back to tag {}\n".format(stenv_tag))
     
     sys.stdout.write("Latest STENV is {}.\n".format(stenv_tag))
     
@@ -83,9 +89,9 @@ def main(**kwargs):
     
     sys.stdout.write("Running on a {} {} system.\n".format(stenv_sys, machine))
     
-    stenv_url = "{0}/{1}/stenv-{2}-py{3}-{1}-{4}.yml"
+    stenv_url = "{0}/{1}/stenv-{2}-py{3}-{1}.yml"
     stenv_url = stenv_url.format(conf['stenv_url'], stenv_tag, stenv_sys, 
-        conf['python_version'], conf['stream'])
+        conf['python_version'])
     
     # Check if we need to install conda
     if shutil.which("conda") is None:

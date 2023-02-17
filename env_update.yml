@@ -33,24 +33,16 @@ dependencies:
 
   - pip:
     # Major modules
-    - numpy
-    - astropy
-    - astroquery
-    - matplotlib
-    - scipy
-    - photutils
-    - ipykernel
+    - ipympl
+    - nbsphinx
+    - PySimpleGUI
     - rebin
-    - tox
-    - sphinx
+    - ruamel.yaml
+    - simpleeval
+    - sphinx_autoapi
     - sphinx_rtd_theme
     - stsci_rtd_theme
-    - sphinx_autoapi
-    - nbsphinx
-    - pyyaml
-    - ipympl
-    - simpleeval
-    - ruamel.yaml
+    - tox
     - -e .
 
 variables:
