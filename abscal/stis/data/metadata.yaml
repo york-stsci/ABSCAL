@@ -45,170 +45,160 @@
 # entry.
 
 delete:
-      - type: node
-        column: mode
-        key: "*MIR*"
-        source: preproc.pro
-        reason: Imaging
-      - type: node
-        column: obsmode
-        key: "== 'ACQ'"
-        source: BY, 2023-01-05
-        reason: Can't extract a spectrum from an imaging ACQ
-      - type: node
-        column: central_wavelength
-        key: "== 8975.0"
-        source: preproc.pro
-        reason: None provided
-      - type: node
-        column: target
-        key: "== 'NONE'"
-        source: preproc.pro
-        reason: None provided
-      - type: AND
-        source: preproc.pro
-        reason: Only allow P041C exposures with postarg != 0, as best available. Allow oe3f01030 as a special test of off-centre G750L
-        entries:
-          - type: OR
-            entries:
-            - type: node
-              column: raw_postarg
-              key: "< -1."
-            - type: node
-              column: raw_postarg
-              key: "> 1."
-          - type: OR
-            entries:
-            - type: NOT
-              entries:
-              - type: node
-                column: raw_postarg
-                key: "== 3"
-            - type: NOT
-              entries:
-              - type: node
-                column: mode
-                key: "== 'G140L'"
+    - type: node
+      column: mode
+      key: "*MIR*"
+      source: preproc.pro
+      reason: Imaging
+    - type: node
+      column: obsmode
+      key: "== 'ACQ'"
+      source: BY, 2023-01-05
+      reason: Can't extract a spectrum from an imaging ACQ
+    - type: node
+      column: central_wavelength
+      key: "== 8975.0"
+      source: preproc.pro
+      reason: None provided
+    - type: node
+      column: target
+      key: "== 'NONE'"
+      source: preproc.pro
+      reason: None provided
+    - type: AND
+      source: preproc.pro
+      reason: Only allow P041C exposures with postarg != 0, as best available. Allow oe3f01030 as a special test of off-centre G750L
+      entries:
+        - type: OR
+          entries:
+          - type: node
+            column: raw_postarg
+            key: "< -1."
+          - type: node
+            column: raw_postarg
+            key: "> 1."
+        - type: OR
+          entries:
           - type: NOT
             entries:
             - type: node
-              column: target
-              key: "== 'P041C'"
+              column: raw_postarg
+              key: "== 3"
           - type: NOT
             entries:
             - type: node
-              column: root
-              key: "== 'oe3f01030'"
-      - type: node
-        column: obsmode
-        key: "== 'ACQ/PEAK'"
-        source: preproc.pro
-        reason: None provided
-      - type: AND
-        source: preproc.pro
-        reason: None provided
-        entries:
+              column: mode
+              key: "== 'G140L'"
+        - type: NOT
+          entries:
           - type: node
             column: target
-            key: "== 'CCDFLAT'"
-          - type: NOT
-            entries:
-            - type: node
-              column: filename
-              key: "*ccdflat*"
-      - type: AND
-        source: preproc.pro
-        reason: None provided
-        entries:
+            key: "== 'P041C'"
+        - type: NOT
+          entries:
           - type: node
-            column: mode
-            key: "== 'G750L'"
-          - type: NOT
-            entries:
-            - type: node
-              column: target
-              key: "== '2M0036+18'"
-          - type: NOT
-            entries:
-            - type: node
-              column: target
-              key: "*GAIA*"
+            column: root
+            key: "== 'oe3f01030'"
+    - type: node
+      column: obsmode
+      key: "== 'ACQ/PEAK'"
+      source: preproc.pro
+      reason: None provided
+    - type: AND
+      source: preproc.pro
+      reason: None provided
+      entries:
+        - type: node
+          column: target
+          key: "== 'CCDFLAT'"
+        - type: NOT
+          entries:
           - type: node
-            column: aperture
-            key: "*E1*"
-      - type: AND
-        source: preproc.pro
-        reason: Prism mode
-        entries:
+            column: filename
+            key: "*ccdflat*"
+    - type: AND
+      source: preproc.pro
+      reason: None provided
+      entries:
+        - type: node
+          column: mode
+          key: "== 'G750L'"
+        - type: NOT
+          entries:
           - type: node
-            column: mode
-            key: "*M*"
-          - type: NOT
+            column: target
+            key: "== '2M0036+18'"
+        - type: NOT
+          entries:
+          - type: node
+            column: target
+            key: "*GAIA*"
+        - type: node
+          column: aperture
+          key: "*E1*"
+    - type: AND
+      source: preproc.pro
+      reason: Prism mode
+      entries:
+        - type: node
+          column: mode
+          key: "*M*"
+        - type: NOT
+          entries:
+          - type: node
+            column: root
+            key: "oe9l*"
+    - type: AND
+      source: preproc.pro
+      reason: Remove most 0.5" slit exposures
+      entries:
+        - type: node
+          column: aperture
+          key: "*.*"
+        - type: NOT
+          entries:
+          - type: node
+            column: root
+            key: "== 'obto03010'"
+        - type: NOT
+          entries:
+          - type: OR
             entries:
             - type: node
               column: root
-              key: "oe9l*"
-      - type: AND
-        source: preproc.pro
-        reason: Remove most 0.5" slit exposures
-        entries:
-          - type: node
-            column: aperture
-            key: "*.*"
-          - type: NOT
-            entries:
+              special: "length:4"
+              key: "oc8c"
             - type: node
               column: root
-              key: "== 'obto03010'"
-          - type: NOT
-            entries:
-            - type: OR
-              entries:
-              - type: node
-                column: root
-                special: "length:4"
-                key: "oc8c"
-              - type: node
-                column: root
-                special: "length:4"
-                key: "od6j"
-              - type: node
-                column: root
-                special: "length:4"
-                key: "odi9"
-              - type: node
-                column: root
-                special: "length:4"
-                key: "ocy5"
-              - type: node
-                column: root
-                special: "length:4"
-                key: "oe9l"
-          - type: NOT
-            entries:
+              special: "length:4"
+              key: "od6j"
             - type: node
-              column: filename
-              special: "contains"
-              key: 'ccdflat'
-      - type: node
-        source: preproc.pro
-        reason: "02mar26 - 6x6 early aper not used for std *, just transm. Findfringe fails??"
-        column: aperture
-        key: "== '6X6'"
-      - type: node
-        source: preproc.pro
-        reason: "pstrtime MAMA turn-on yr.ddd"
-        column: date
-        key: "< '1997-05-18'"
+              column: root
+              special: "length:4"
+              key: "odi9"
+            - type: node
+              column: root
+              special: "length:4"
+              key: "ocy5"
+            - type: node
+              column: root
+              special: "length:4"
+              key: "oe9l"
+        - type: NOT
+          entries:
+          - type: node
+            column: filename
+            special: "contains"
+            key: 'ccdflat'
+    - type: node
+      source: preproc.pro
+      reason: "02mar26 - 6x6 early aper not used for std *, just transm. Findfringe fails??"
+      column: aperture
+      key: "== '6X6'"
+    - type: node
+      source: preproc.pro
+      reason: "pstrtime MAMA turn-on yr.ddd"
+      column: date
+      key: "< '1997-05-18'"
 
 edit: []
-
-# delete:
-#     - column: obset
-#       key: ic6907
-#       source: prewfc.pro
-#       reason: VY2 Bad WL Testing
-#     - column: root
-#       key: iab907jdq
-#       source: wfc_process.pro
-#       reason: POSTARG has wrong sign

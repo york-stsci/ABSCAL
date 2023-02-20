@@ -286,10 +286,10 @@ def build_expr(value):
             # We're doing something odd. Currently set up for "length:l" which means 
             # we only care about the first l characters, and "contains", which means
             # we're checking if the value contains a supplied string.
-            if "length" in inputs["special"]:
-                l = int(inputs["special"].split(":")[1])
+            if "length" in value["special"]:
+                l = int(value["special"].split(":")[1])
                 expr = "{}[:{}] == '{}'".format(search_column, l, search_key)
-            elif inputs["special"] == "contains":
+            elif value["special"] == "contains":
                 expr = "'{}' in {}".format(search_key, search_column)
             else:
                 print("ERROR: Unknown special column type {}".format(inputs["special"]))
@@ -360,7 +360,7 @@ def build_expr(value):
     return expr, source, reason
 
 
-def value_eval(var, expr):
+def value_eval(var, expr, pre="", verbose=False):
     """
     Return the output when evaluating the variable ``var`` as part of an arithmetic 
     string. This uses ``simple_eval()``, which is intended to allow only arithmetic 
@@ -379,14 +379,29 @@ def value_eval(var, expr):
             expr = expr.replace(negation_char, "")
             if wildcard_char in expr:
                 expr = expr.replace(wildcard_char, "")
-                return simple_eval("not ({} in '{}')".format(expr, var))
+                final = "not ('{}' in '{}')".format(expr, var)
+                if verbose:
+                    print("{}: evaluating '{}'".format(pre, final))
+                return simple_eval(final)
             else:
-                return simple_eval("not ('{}' {})".format(var, expr))
+                final = "not ('{}' {})".format(var, expr)
+                if verbose:
+                    print("{}: evaluating '{}'".format(pre, final))
+                return simple_eval(final)
         elif wildcard_char in expr:
             expr = expr.replace(wildcard_char, "")
-            return simple_eval("{} in '{}'".format(expr, var))
-        return simple_eval("'{}' {}".format(var, expr))
-    return simple_eval("{} {}".format(var, expr))
+            final = "'{}' in '{}'".format(expr, var)
+            if verbose:
+                print("{}: evaluating '{}'".format(pre, final))
+            return simple_eval(final)
+        final = "'{}' {}".format(var, expr)
+        if verbose:
+            print("{}: evaluating '{}'".format(pre, final))
+        return simple_eval(final)
+    final = "{} {}".format(var, expr)
+    if verbose:
+        print("{}: evaluating '{}'".format(pre, final))
+    return simple_eval(final)
 
 
 def initialize_value(name, inputs, row, default, verbose):
@@ -397,11 +412,21 @@ def initialize_value(name, inputs, row, default, verbose):
     - Returning both
     """
     initial_value = default
-    found, value = find_value(name, inputs, row, default=default, verbose=verbose)
+    found, value = get_value(name, inputs, row, default=default, verbose=verbose)
     if found:
         initial_value = value
     value = initial_value
     return initial_value, value
+
+
+def get_value(name, inputs, row, default=None, pre="", verbose=False):
+    """
+    Stub function because the base-level needs to check for the presence of the keyword,
+    whereas the recursive function does not necessarily need to.
+    """
+    if name in inputs:
+        return find_value(name, inputs, row, default, pre, verbose)
+    return False, default
 
 
 def find_value(name, inputs, row, default=None, pre="", verbose=False):
@@ -418,13 +443,15 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
         inputs = inputs[name]
         if 'parameters' in inputs:
             # Trunk node
+            if verbose:
+                print("{}Parameter Trunk".format(pre))
             if 'value' in inputs:
-                if (name in row) and (value_eval(row[name], inputs['value'])):
+                if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
                     if verbose:
                         print("{}Matched {} ({})".format(pre, name, row[name]))
                     match_found = True
             elif 'values' in inputs:
-                if (name in row) and (row[name] in inputs['values']):
+                if (name in row.columns) and (row[name] in inputs['values']):
                     if verbose:
                         print("{}Matched {} ({})".format(pre, name, row[name]))
                     match_found = True
@@ -433,6 +460,8 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
             if match_found:
                 if 'default' in inputs:
                     value = inputs['default']
+                    if verbose:
+                        print("{}: Setting value to default {}".format(pre, value))
                 ordering = inputs['eval_order']
                 inputs = inputs['parameters']
                 for key in ordering:
@@ -443,37 +472,64 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                         match_found = True
                         value = value_found
                         break
-        elif 'user' in inputs:
-            # leaf note, user override
-            if verbose:
-                name = inputs['user']['name']
-                date = inputs['user']['date']
-                result = inputs['user']['param_value']
-                reason = inputs['user']['reason']
-                msg = "{}User Override: {} on {} set value to {} because {}"
-                print(msg.format(pre, name, date, result, reason))
-            value = inputs['user']['param_value']
-            match_found = True
-        elif 'value' in inputs:
-            # Leaf node, single-expression
-            if (name in row) and (value_eval(row[name], inputs['value'])):
-                value = inputs['param_value']
-                match_found = True
-                if verbose:
-                    msg = "{}Setting {} to {} based on {} because {}"
-                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
-        elif 'values' in inputs:
-            # Leaf node, multi-value list
-            if (name in row) and (row[name] in inputs['values']):
-                value = inputs['param_value']
-                match_found = True
-                if verbose:
-                    msg = "{}Setting {} to {} based on {} because {}"
-                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
         else:
-            if verbose:
-                msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
-                print(msg.format(pre, inputs, value))
+            if isinstance(inputs, list):
+                for item in inputs:
+                    if verbose:
+                        print("{}Checking list item".format(pre))
+                    m, v = find_value(name, item, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                    if m:
+                        return m, v
+            else:
+                if verbose:
+                    msg = "{}: ERROR: Invalid node {}"
+                    print(msg.format(pre, inputs))
+    elif 'value' in inputs:
+        # Leaf node, single-expression
+        if verbose:
+            print("{}Leaf node {}".format(pre, inputs))
+        if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
+            match_found = True
+            if "user" in inputs:
+                # user override
+                if verbose:
+                    name = inputs['user']['name']
+                    date = inputs['user']['date']
+                    result = inputs['user']['param_value']
+                    reason = inputs['user']['reason']
+                    msg = "{}User Override: {} on {} set value to {} because {}"
+                    print(msg.format(pre, name, date, result, reason))
+                value = inputs['user']['param_value']
+            else:
+                value = inputs['param_value']
+                if verbose:
+                    msg = "{}Setting {} to {} based on {} because {}"
+                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+    elif 'values' in inputs:
+        # Leaf node, multi-value list
+        if verbose:
+            print("{}Leaf node {}".format(pre, inputs))
+        if (name in row.columns) and (row[name] in inputs['values']):
+            match_found = True
+            if "user" in inputs:
+                # user override
+                if verbose:
+                    name = inputs['user']['name']
+                    date = inputs['user']['date']
+                    result = inputs['user']['param_value']
+                    reason = inputs['user']['reason']
+                    msg = "{}User Override: {} on {} set value to {} because {}"
+                    print(msg.format(pre, name, date, result, reason))
+                value = inputs['user']['param_value']
+            else:
+                value = inputs['param_value']
+                if verbose:
+                    msg = "{}Setting {} to {} based on {} because {}"
+                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+    else:
+        if verbose:
+            msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
+            print(msg.format(pre, inputs, value))
     
     if verbose:
         print("{}Returning {} ({})".format(pre, value, match_found))
@@ -484,21 +540,22 @@ def set_override(name, inputs, row, uname, value, reason):
     """
     Set a user override on a parameter
     """
+    
     user_dict = {'name': uname,
-                 'date': datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                 'date': datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
                  'param_value': value,
                  'reason': reason}
     
     if name not in inputs:
-        inputs[name] = {'eval_order': ['root'], 'parameters': {}}
+        inputs[name] = {'eval_order': ['root'], 'parameters': {'root': []}}
     p = inputs[name]['parameters']
-    if root not in p:
+    if 'root' not in p:
         p['root'] = []
     leaf_found = False
     for item in p['root']:
         if 'value' in item:
             # Leaf node, single-expression
-            if value_eval(row['root'], item['value']):
+            if value_eval(row['root'], item['value'], verbose=True):
                 item['user'] = user_dict
                 return
         elif 'values' in item:
@@ -533,8 +590,10 @@ def handle_parameter(name, start_value, current_value, file, row):
                 with open(file, mode="w") as outf:
                     yaml.dump(config, outf)
                 print("Changed value for {}".format(row['root']))
+                done = True
             elif response.lower() in ["n", "no"]:
                 print("Value not saved.")
+                done = True
             else:
                 print("Unknown response {}".format(response))
 

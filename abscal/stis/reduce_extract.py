@@ -46,30 +46,36 @@ xc: default -1
     from the grism exposure directly.
 """
 
-import datetime
-import glob
-import os
-import shutil
-import yaml
-
-import matplotlib.pyplot as plt
-import numpy as np
-
 from astropy import wcs
 from astropy.io import ascii, fits
 from astropy.table import Table, Column
 from astropy.time import Time
+from collections import defaultdict
 from copy import deepcopy
 from crds import assign_bestrefs
-from matplotlib.colors import LogNorm
-from matplotlib.widgets import TextBox, Button
+from distutils.util import strtobool
+import datetime
+import glob
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 from pathlib import Path
+import PySimpleGUI as sg
+import shutil
 from stistools import basic2d
 from stistools import ocrreject
-from stistools import x1d
+from stistools import x1d as stis_extract
+import traceback
+import yaml
 
 from abscal.common.args import parse
-from abscal.common.utils import find_value
+from abscal.common.plots import draw_figure
+from abscal.common.plots import make_img_fig
+from abscal.common.plots import make_figure_window
+from abscal.common.plots import make_params_window
+from abscal.common.plots import make_spectrum_window
+from abscal.common.utils import get_value
 from abscal.common.utils import get_data_file
 from abscal.common.utils import get_defaults
 from abscal.common.utils import handle_parameter
@@ -77,6 +83,7 @@ from abscal.common.utils import initialize_value
 from abscal.common.utils import set_params
 from abscal.common.utils import set_image
 from abscal.stis.stis_data_table import STISDataTable
+
 
 def reduce_flatfield(input_table, **kwargs):
     """
@@ -106,6 +113,7 @@ def reduce_flatfield(input_table, **kwargs):
     raw_file = os.path.join(path, fname)
     final_file = raw_file.replace("_raw", "_{}_{}_2d".format(target, mode))
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
+    exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get("verbose", False)
 
     issues = {}
@@ -164,91 +172,82 @@ def reduce_flatfield(input_table, **kwargs):
         basic2d.basic2d(raw_file, output=interim_file, verbose=verbose)
         with fits.open(interim_file) as interim_fits:
             initial_dat = interim_fits[1].data
-        crj_file = os.path.join(path, root+"_interim_crj.fits")
-        crj_params = {
-                        "scalense": "{}".format(mulnoise*100), 
-                        "initgues": "", 
-                        "skysub": skysub, 
-                        "crsigmas": "8,6,4",
-                        "crradius": 0., 
-                        "crthresh": 0.5, 
-                        "crmask": ""}
-        trial_params = {"accepted": False,
-                        "custom": False}
-        while not trial_params['accepted']:
-            if os.path.isfile(crj_file):
-                os.remove(crj_file)
-            # Iterate cosmic ray rejection, potentially editing parameters each time,
-            # until the result is accepted
-            ocrreject.ocrreject(interim_file, crj_file, verbose=verbose, **crj_params)
-            with fits.open(crj_file) as cosmic_ray_file:
-                crj_dat = cosmic_ray_file['SCI'].data
-                cr_flag_dat = cosmic_ray_file['DQ'].data & cr_flag_value
-            # Display 
-            #   - initial image
-            #   - image after rejection
-            #   - difference image
-            # and collect user input on whether the CR rejection has hit the actual
-            # spectrum.
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 3, 1)
-            ax.matshow(initial_dat, origin='lower', norm=LogNorm())
-            ax.set_title("Before Cosmic Ray Rejection")
-            ax = fig.add_subplot(1, 3, 2)
-            ax.matshow(crj_dat, origin='lower', norm=LogNorm())
-            ax.set_title("After Cosmic Ray Rejection")
-            ax = fig.add_subplot(1, 3, 3)
-            ax.imshow(cr_flag_dat, origin='lower')
-            ax.set_title("Pixels Flagged as cosmic rays")
-            fig.subplots_adjust(bottom=0.2)
-            
-            def accept(event):
-                trial_params['accepted'] = True
-                plt.close()
-            accept_axis = fig.add_axes([0.1, 0.05, 0.15, 0.075])
-            accept_button = Button(accept_axis, 'Accept')
-            accept_button.on_clicked(accept)
-            
-            def tighten(event):
-                mulnoise = float(crj_params['scalense'])/100.
-                mulnoise -= 0.01
-                crj_params['scalense'] = "{}".format(mulnoise*100)
-                plt.close()
-            more_axis = fig.add_axes([0.35, 0.05, 0.15, 0.075])
-            more_button = Button(more_axis, 'Reject more CRs')
-            more_button.on_clicked(tighten)
-            
-            def loosen(event):
-                mulnoise = float(crj_params['scalense'])/100.
-                mulnoise += 0.01
-                crj_params['scalense'] = "{}".format(mulnoise*100)
-                plt.close()
-            less_axis = fig.add_axes([0.55, 0.05, 0.15, 0.075])
-            less_button = Button(less_axis, 'Reject Fewer CRs')
-            less_button.on_clicked(loosen)
-            
-            def custom(event):
-                trial_params['accepted'] = True
-                trial_params['custom'] = True
-                plt.close()
-            custom_axis = fig.add_axes([0.75, 0.05, 0.15, 0.075])
-            custom_button = Button(custom_axis, 'Enter Custom Value')
-            custom_button.on_clicked(custom)
-
-            plt.show()
-        # end iteration on cosmic ray rejection
         
-        if trial_params['custom']:
-            got_custom = False
-            while not got_custom:
-                try:
-                    mulnoise = float(input("Enter custom mulnoise value: "))
-                except ValueError as e:
-                    print("Error: {}".format(e))
-            if verbose:
-                msg = "{}: Repeating cosmic ray rejection with mulnoise = {}"
-                print(msg.format(preamble, mulnoise))
-            crj_params['scalense'] = "{}".format(mulnoise*100)
+        crj_file = os.path.join(path, root+"_interim_crj.fits")
+        crj_params = {"scalense": "{}".format(mulnoise*100), 
+                      "initgues": "",
+                      "skysub": skysub,
+                      "crsigmas": "8,6,4",
+                      "crradius": 0.,
+                      "crthresh": 0.5,
+                      "crmask": ""}
+        crj_types = defaultdict(lambda: str)
+        crj_types["crradius"] = float
+        crj_types["crthresh"] = float
+        initial_crj_params = deepcopy(crj_params)
+
+        pre_window = make_figure_window("{}: Before Cosmic Ray Removal".format(exp_info))
+        pre_fig = make_img_fig(np.log10(np.where(initial_dat>=0.1, initial_dat, 0.1)))
+        draw_figure(pre_window, pre_fig)
+
+        post_window = make_figure_window("{}: After Cosmic Ray Removal".format(exp_info))
+        flag_window = make_figure_window("{}: Cosmic Ray Flags".format(exp_info))
+
+        # Create Parameter Window
+        cr_buttons = [sg.Button('Flag More CRs'), sg.Push(), sg.Button('Flag Fewer CRs')]
+        param_window = make_params_window(exp_info, "ocrreject", crj_params, [cr_buttons])
+                
+        changed = True
+        while True:
+            if changed:
+                # If a value was changed, re-do the cosmic ray rejection.
+                if os.path.isfile(crj_file):
+                    os.remove(crj_file)
+                ocrreject.ocrreject(interim_file, crj_file, verbose=verbose, **crj_params)
+                with fits.open(crj_file) as cosmic_ray_file:
+                    crj_dat = cosmic_ray_file['SCI'].data
+                    cr_flag_dat = cosmic_ray_file['DQ'].data & cr_flag_value
+                
+                # Create the new figures
+                post_fig = make_img_fig(np.log10(np.where(crj_dat>=0.1, crj_dat, 0.1)))
+                draw_figure(post_window, post_fig)
+                flag_fig = make_img_fig(cr_flag_dat)
+                draw_figure(flag_window, flag_fig)
+                changed = False
+            window, event, values = sg.read_all_windows()
+            if window is None and event != sg.TIMEOUT_EVENT:
+                print('exiting because no windows are left')
+                break
+            elif event == sg.WIN_CLOSED or event == 'Exit':
+                # Closing the parameter window is the equivalent of "Accept"
+                if window == param_window:
+                    break
+                window.close()
+            elif event == 'Accept':
+                break
+            elif event == "Reset":
+                changed = True
+                crj_params = deepcopy(initial_crj_params)
+            elif event == "Re-plot":
+                for item in crj_params:
+                    if crj_params[item] != crj_types[item](values[item]):
+                        changed = True
+                    crj_params[item] = crj_types[item](values[item])
+            elif event == "Flag More CRs":
+                crj_params["scalense"] -= 1.
+                changed = True
+            elif event == "Flag Fewer CRs":
+                crj_params["scalense"] += 1.
+                changed = True
+            else:
+                print("{}: Got event {} for window {} with values {}".format(preamble, event, window, values))
+        pre_window.close()
+        post_window.close()
+        flag_window.close()
+        param_window.close()
+
+        if changed:
+            # At least one CRJ parameter was changed without re-running ocrreject
             ocrreject.ocrreject(interim_file, final_file, verbose=verbose, **crj_params)            
         else:
             shutil.copy(crj_file, final_file)
@@ -256,8 +255,20 @@ def reduce_flatfield(input_table, **kwargs):
         if verbose:
             print("{}: Finished Cosmic Ray Iteration".format(preamble))
         
-        mulnoise = float(crj_params['scalense'])/100.
-        handle_parameter('mulnoise', initial_mulnoise, mulnoise, param_file, input_table)
+        if os.path.isfile(interim_file):
+            os.remove(interim_file)
+        if os.path.isfile(crj_file):
+            os.remove(crj_file)
+        
+        for item in crj_params:
+            if item == "scalense":
+                initial_mulnoise = float(initial_crj_params["scalense"])/100.
+                mulnoise = float(crj_params["scalense"])/100.
+                handle_parameter("mulnoise", initial_mulnoise, mulnoise, param_file, 
+                                 input_table)
+            else:
+                handle_parameter(item, initial_crj_params[item], crj_params[item], 
+                                 param_file, input_table)
 
     # Finished 2d extraction preparation
     if verbose:
@@ -290,6 +301,7 @@ def reduce_extract(input_table, **kwargs):
     fname = input_table['filename']
     flt_file = os.path.join(path, input_table['flatfielded'])
     final_file = os.path.join(path, root+"_{}_{}_x1d.fits".format(target, mode))    
+    exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get('verbose', False)
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
     
@@ -310,11 +322,11 @@ def reduce_extract(input_table, **kwargs):
                   "ctecorr": 'perform', 
                   "dispcorr": 'perform', 
                   "helcorr": 'perform', 
-                  "fluxcorr": 'omit', 
+                  "fluxcorr": 'perform', 
                   "sporder": None, 
                   "a2center": None, 
                   "maxsrch": None, 
-                  "globalx": False, 
+                  "globalx": False,  # Whether to use global cross-correlation offset for all orders
                   "extrsize": None, 
                   "bk1size": None, 
                   "bk2size": None, 
@@ -327,26 +339,172 @@ def reduce_extract(input_table, **kwargs):
                   "blazeshift": None, 
                   "algorithm": 'unweighted', 
                   "xoffset": None, 
-                  "verbose": verbose, 
-                  "timestamps": False, 
-                  "trailer": '', 
-                  "print_version": False, 
-                  "print_revision": False}
-    trial_params = {"accepted": False}
+                  "verbose": verbose}
+    x1d_types = {'sporder': int,
+                 'a2center': float,
+                 'maxsrch': float,
+                 'extrsize': float,
+                 'bk1size': float,
+                 'bk2size': float,
+                 'bk1offset': float,
+                 'bk2offset': float,
+                 'bktilt': float,
+                 'backord': int,
+                 'bksorder': int,
+                 'blazeshift': float,
+                 'xoffset': float}
     
     for param in x1d_params:
         # Find any parameter values
-        found, value = find_value(param, 
-                                  issues, 
-                                  input_table, 
-                                  default=x1d_params[param], 
-                                  verbose=verbose)
+        found, value = get_value(param, issues, input_table, default=x1d_params[param], 
+                                 verbose=verbose)
         if found:
             x1d_params[param] = value
     
     initial_params = deepcopy(x1d_params)
     
-    x1d.x1d(flt_file, **x1d_params)
+    stis_extract.x1d(flt_file, **x1d_params)
+    
+    # For plotting what's going on in the 2D file:
+    #   - "backcorr":   f[0].header["BACKCORR"]
+    #   - "ctecorr":    f[0].header["CTECORR"]
+    #   - "dispcorr":   f[0].header["DISPCORR"]
+    #   - "helcorr":    f[0].header["HELCORR"]
+    #   - "fluxcorr":   f[0].header["FLUXCORR"]
+    #   - "sporder":    f[1].data["SPORDER"]
+    #   - "a2center":   f[1].data["A2CENTER"] 
+    #   - "maxsrch":    f[1].data["MAXSRCH"]
+    #   - "globalx":    [*****probably not needed?*****]
+    #   - "extrsize":   f[1].data["EXTRSIZE"]
+    #   - "bk1size":    f[1].data["BK1SIZE"]
+    #   - "bk2size":    f[1].data["BK2SIZE"]
+    #   - "bk1offst":   f[1].data["BK1OFFST"]
+    #   - "bk2offst":   f[1].data["BK2OFFST"]
+    #   - "bktilt": 
+    #                   - look at f[0].header["XTRACTAB"]
+    #                   - get aperture from f[0].header["PROPAPER"]
+    #                   - get opt_elem from f[0].header["OPT_ELEM"]
+    #                   - get cenwave from int(f[0].header["CENWAVE"])
+    #                   - get the BKTCOEFF values matching these
+    #                   - somehow figure out what each of these 7 coefficients means?
+    #   - "backord":    as "bktilt" but for "BACKORD" column. It's either 0 or 1. It 
+    #                   defines whether to use the average of lower/upper background 
+    #                   region (backord=0, default), or do a linear interpolation
+    #                   (backord=1)
+    #   - "bksmode":    how to smooth background (mode or median). Default is median.
+    #   - "bksorder":   polynomial to fit to smoothed background. Integer. Defaults to 3.
+    #   - "blazeshift": echelle blazeshift, based on SHIFTA1, SHIFTA2, and MJD of exposure
+    #   - "algorithm":  as "bktilt" but XTRACALG
+    #   - "xoffset":    f[0].header["SHIFTA1"]
+    
+    if os.path.isfile(final_file):
+        with fits.open(flt_file) as fltf, fits.open(final_file) as x1df:
+            x_arr = np.arange(1024, dtype=np.int32)
+            spec_loc = x1df[1].data['EXTRLOCY'][0]
+            spec_low = spec_loc - x1df[1].data["EXTRSIZE"][0]//2
+            spec_high = spec_loc + x1df[1].data["EXTRSIZE"][0]//2
+        
+            b1_loc = spec_loc + x1df[1].data["BK1OFFST"][0]
+            b1_low = b1_loc - x1df[1].data["BK1SIZE"][0]//2
+            b1_high = b1_loc + x1df[1].data["BK1SIZE"][0]//2
+        
+            b2_loc = spec_loc + x1df[1].data["BK2OFFST"][0]
+            b2_low = b2_loc - x1df[1].data["BK2SIZE"][0]//2
+            b2_high = b2_loc + x1df[1].data["BK2SIZE"][0]//2
+            
+            ext_data = fltf[1].data
+
+        extr_window = make_figure_window("{}: Extraction Region".format(exp_info))
+        ext_fig = make_img_fig(np.log10(np.where(ext_data>=0.1,ext_data,0.1)))
+        ax = ext_fig.axes[0]
+        ax.plot(x_arr, spec_low, color='white', label='Extraction Region')
+        ax.plot(x_arr, spec_high, color='white')
+        ax.plot(x_arr, b1_low, color='red', label='Background 1 Region')
+        ax.plot(x_arr, b1_high, color='red')
+        ax.plot(x_arr, b2_low, color='blue', label='Background 2 Region')
+        ax.plot(x_arr, b2_high, color='blue')
+        ax.legend()
+        draw_figure(extr_window, ext_fig)
+        
+        spec_window, spec_fig, lines = make_spectrum_window("{}: Extracted".format(exp_info),
+                                                            final_file)
+        draw_figure(spec_window, spec_fig)
+
+        # Create Parameter Window
+        param_window = make_params_window(exp_info, "x1d", x1d_params)
+        
+        changed = False
+        while True:
+            if changed:
+                # If a value was changed, re-do the cosmic ray rejection.
+                if os.path.isfile(final_file):
+                    os.remove(final_file)
+                stis_extract.x1d(flt_file, **x1d_params)
+                with fits.open(final_file) as x1df:
+                    x_arr = np.arange(1024, dtype=np.int32)
+                    spec_loc = x1df[1].data['EXTRLOCY'][0]
+                    spec_low = spec_loc - x1df[1].data["EXTRSIZE"][0]//2
+                    spec_high = spec_loc + x1df[1].data["EXTRSIZE"][0]//2
+        
+                    b1_loc = spec_loc + x1df[1].data["BK1OFFST"][0]
+                    b1_low = b1_loc - x1df[1].data["BK1SIZE"][0]//2
+                    b1_high = b1_loc + x1df[1].data["BK1SIZE"][0]//2
+        
+                    b2_loc = spec_loc + x1df[1].data["BK2OFFST"][0]
+                    b2_low = b2_loc - x1df[1].data["BK2SIZE"][0]//2
+                    b2_high = b2_loc + x1df[1].data["BK2SIZE"][0]//2
+                
+                # Create the new figures
+                ext_fig = make_img_fig(np.log10(np.where(ext_data>=0.1,ext_data,0.1)))
+                ax = ext_fig.axes[0]
+                ax.plot(x_arr, spec_low, color='white', label='Extraction Region')
+                ax.plot(x_arr, spec_high, color='white')
+                ax.plot(x_arr, b1_low, color='red', label='Background 1 Region')
+                ax.plot(x_arr, b1_high, color='red')
+                ax.plot(x_arr, b2_low, color='blue', label='Background 2 Region')
+                ax.plot(x_arr, b2_high, color='blue')
+                ax.legend()
+                draw_figure(extr_window, ext_fig)
+                
+                for line in lines:
+                    lines[line].set_visible(spec_window[line].get())
+                # Toggle line visibility on the extracted figure
+                draw_figure(spec_window, spec_fig)
+                changed = False
+            window, event, values = sg.read_all_windows()
+            if window is None and event != sg.TIMEOUT_EVENT:
+                print('exiting because no windows are left')
+                break
+            elif event == sg.WIN_CLOSED or event == 'Exit':
+                # Closing the parameter window is the equivalent of "Accept"
+                if window == param_window:
+                    break
+                window.close()
+            elif event == 'Accept':
+                break
+            elif event == "Reset":
+                changed = True
+                x1d_params = deepcopy(initial_x1d_params)
+            elif event == "Re-plot":
+                for item in x1d_params:
+                    if x1d_params[item] != x1d_types[item](values[item]):
+                        if not (x1d_params[item] is None and values[item] == 'None'):
+                            changed = True
+                    if values[item] == 'None':
+                        x1d_params[item] = None
+                    else:
+                        x1d_params[item] = x1d_types[item](values[item])
+            elif event in lines.keys():
+                lines[event].set_visible(not lines[event].get_visible())
+                spec_fig.canvas.draw()
+                changed = True
+            else:
+                print("{}: Got event {} for window {} with values {}".format(preamble, event, window, values))
+        extr_window.close()
+        spec_window.close()
+        param_window.close()
+    else:
+        print("{}: ERROR: Spectral extraction failed.")
 
     return os.path.basename(final_file)
 
@@ -378,7 +536,7 @@ def reduce(input_table, **kwargs):
     base_defaults = default_values | get_defaults(kwargs.get('module_name', __name__))
     verbose = kwargs.get('verbose', base_defaults['verbose'])
     show_plots = kwargs.get('plots', base_defaults['plots'])
-    force = kwargs.get('force', base_defaults['force'])
+    update_refs = kwargs.get('ref_update', base_defaults['ref_update'])
 
     if 'out_file' in kwargs:
         out_file = kwargs['out_file']
@@ -399,14 +557,18 @@ def reduce(input_table, **kwargs):
         with open(exposure_parameter_file, 'r') as inf:
             issues = yaml.safe_load(inf)
     
-    # Make sure the files are set to use the appropriate CRDS references, and that the
-    # references have been appropriately retrieved.
-    task_verbosity = -1
-    if verbose:
-        print("{}: Checking Reference Data".format(task))
-        task_verbosity = 10
-    files = [os.path.join(p,f) for p,f in zip(input_table['path'], input_table['filename'])]
-    assign_bestrefs(files, sync)_references=True, verbosity=task_verbosity
+    if update_refs:
+        # Make sure the files are set to use the appropriate CRDS references, and that the
+        # references have been appropriately retrieved.
+        task_verbosity = -1
+        if verbose:
+            print("{}: Checking Reference Data".format(task))
+            task_verbosity = 10
+        files = [os.path.join(p,f) for p,f in zip(input_table['path'], input_table['filename'])]
+        assign_bestrefs(files, sync_references=True, verbosity=task_verbosity)
+    else:
+        if verbose:
+            print("{}: Skipping reference file update".format(task))
 
     if verbose:
         print("{}: Starting individual file reductions".format(task))
@@ -495,11 +657,30 @@ def additional_args(**kwargs):
     table_kwargs = {'help': table_help}
     additional_args['table'] = (table_args, table_kwargs)
 
-    plots_help = "Include result plots while running (default False)."
+    plots_default = base_defaults['plots']
+    if isinstance(plots_default, str):
+        plots_default = strtobool(plots_default)
+    plots_help = "Toggle interactive mode (default {}).".format(plots_default)
     plots_args = ["-p", "--plots"]
-    plots_kwargs = {'dest': 'plots', 'action': 'store_true', 
-                    'default': base_defaults['plots'], 'help': plots_help}
+    plots_kwargs = {'dest': 'plots', 'default': plots_default, 'help': plots_help}
+    if plots_default:
+        plots_kwargs['action'] = 'store_false'
+    else:
+        plots_kwargs['action'] = 'store_true'
     additional_args['plots'] = (plots_args, plots_kwargs)
+    
+    ref_default = base_defaults['ref_update']
+    if isinstance(ref_default, str):
+        ref_default = strtobool(ref_default)
+    ref_help = "Toggle whether to update reference files while running "
+    ref_help += "(default {})".format(ref_default)
+    ref_args = ["-r", "--ref_update"]
+    ref_kwargs = {'dest': 'ref_update', 'default': ref_default, 'help': ref_help}
+    if ref_default:
+        ref_kwargs['action'] = 'store_false'
+    else:
+        ref_kwargs['action'] = 'store_true'
+    additional_args['ref_update'] = (ref_args, ref_kwargs)
 
     return additional_args
 

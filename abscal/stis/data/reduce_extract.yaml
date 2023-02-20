@@ -108,1123 +108,1135 @@
 # readable and shorter.
 
 mulnoise:
-    default: 0.
-    eval_order:
-    - date
-    - target
-    - root
-    parameters:
-    - date:
-      - value: < 2009
-        param_value: 0.03
-        source: preproc.pro
-        reason: Default mulnoise=0.03 for pre-SM4 data
-    - target:
-      - value: == HD209458
-        param_value: 0.1
-        source: preproc.pro
-        reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Default to 0.1
-    - root:
-      - values:
-        - o3wy020a0
-        - o3tt21040
-        - o3tt40040
-        - o3tt40040
-        - o3tt42040
-        - o3tt43040
-        - o3tt44040
-        - o3tt45040
-        - o3tt46040
-        - o3tt47040
-        - o49q02050
-        - o49q02070
-        - o4sp04010
-        - o4sp040d0
-        - o49x06010
-        - o49x07010
-        - o49x07010
-        - o49x16010
-        - o49x17010
-        - o49x18010
-        - o49x19010
-        - o49x20010
-        - o49x28010
-        - o57t02020
-        - o61002030
-        - o61003030
-        - o61004030
-        - o3tt41040
-        param_value: 0.1
-        source: preproc.pro
-        reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Default to 0.1
-      - value: == 'o57t02020'
-        param_value: 0.4
-        source: preproc.pro
-        reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Set this exposure to 0.4
-      - value: == 'o49x16010'
-        param_value: 0.06
-        source: preproc.pro
-        reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Set this exposure to 0.06
-      - values:
-        - oa9j020l0
-        - oa9j020m0
-        - obau01020
-        - obbc10020
-        - obbc07040
-        - obau02020
-        - obau02040
-        - obau04020
-        param_value: 0.03
-        source: preproc.pro
-        reason: none provided
-      - value: == 'obc401060'
-        param_value: 0.03
-        source: preproc.pro
-        reason: G191, G430L
-      - value: == 'obc404010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: P330E, G430L
-      - value: == 'obc404020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: P330E, G750L
-      - value: == 'obc405030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd165459 230lb
-      - value: == 'obc405050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd165459 g430l
-      - value: == 'obc405060'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd165459 g50l
-      - value: == 'obmzl1020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: agk g230lb
-      - value: == 'obc402050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: gd153 g430l
-      - value: == 'obnf06010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: P330E g430l-E1
-      - value: == 'obnl09010'
-        param_value: 0.10
-        source: preproc.pro
-        reason: HD38949 g750L
-      - value: == 'obnl09030'
-        param_value: 0.10
-        source: preproc.pro
-        reason: HD38949 g430L
-      - value: == 'obnl08010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD37962 g430L
-      - value: == 'obnl08020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: HD37962 g230LB
-      - value: == 'obnl08030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD37962 g750L
-      - value: == 'obnl10010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD106252 g430L
-      - value: == 'obnl10020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD106252g230LB
-      - value: == 'obnl10030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD106252 g750L
-      - value: == 'obnl11010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD205905 g430L
-      - value: == 'obnl11020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: HD205905g230LB
-      - value: == 'obnl11030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD205905 g750L
-      - value: == 'obnl03020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD116405G230LB
-      - value: == 'obnl03040'
-        param_value: 0.01
-        source: preproc.pro
-        reason: HD116405 G750L
-      - value: == 'obnl06020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: HD180609G230LB
-      - value: == 'obnl07030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: BD+60D1753 G430L
-      - value: == 'obnl12010'
-        param_value: 0.05
-        source: preproc.pro
-        reason: HD27836 G430L
-      - value: == 'obnl12030'
-        param_value: 0.06
-        source: preproc.pro
-        reason: HD27836 G430L
-      - value: == 'obvp06060'
-        param_value: 0.03
-        source: preproc.pro
-        reason: gd71 G750L
-      - value: == 'obto03020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: HD158485 g230LB
-      - value: == 'obto09010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd60753 g430L
-      - value: == 'obto09020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: hd60753 g430LE
-      - value: == 'obto09030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd60753 g230LBE
-      - value: == 'obto09040'
-        param_value: 0.01
-        source: preproc.pro
-        reason: hd60753 g230LB
-      - value: == 'obto09050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: hd60753 g750L
-      - value: == 'obto05050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: lamlep g750L
-      - value: == 'obto07050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: mu col g750L
-      - value: == 'obto01020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "159222 g230LB"
-      - value: == 'obto01030'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "159222 g750L"
-      - value: == 'obto08010'
-        param_value: 0.1
-        source: preproc.pro
-        reason: ksi2Cet g430L
-      - value: == 'obto08030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: ksi2Cet g430L
-      - value: == 'obto08040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: ksi2Cet g430L
-      - value: == 'obto08050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: ksi2Cet g430L
-      - value: == 'obto04020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: Hd163466 230lb
-      - value: == 'obto04030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: Hd163466 430LE
-      - value: == 'obto04050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: Hd163466 G750L
-      - value: == 'obto02040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: Hd14943 G430L
-      - value: == 'obto02050'
-        param_value: 0.03
-        source: preproc.pro
-        reason: Hd14943 G750L
-      - value: == 'obto06010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "10Lac G430L"
-      - value: == 'obto06020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "10Lac G430LE1"
-      - value: == 'obto06030'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "10Lac G230LBE1"
-      - value: == 'obto06040'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "10Lac G230LB"
-      - value: == 'obto06050'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "10Lac G750L"
-      - value: == 'oc3i01010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "hd9051 G230lbE"
-      - value: == 'oc3i01020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "hd9051 G430lE1"
-      - value: == 'oc3i01030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "hd9051 G430l"
-      - value: == 'oc3i01040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "hd9051 G750l"
-      - value: == 'oc3i02010'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "hd31128G230lbE"
-      - value: == 'oc3i02020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "...    G430LE1"
-      - value: == 'oc3i02040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "...    G750L"
-      - value: == 'oc3i03010'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "hd74000G230lbE"
-      - value: == 'oc3i04040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "hd111980 G750L"
-      - value: == 'oc3i05010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "h160617G230lbE1"
-      - value: == 'oc3i05020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "h160617G430lE1"
-      - value: == 'oc3i05040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "h160617G750L"
-      - value: == 'oc3i06020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "h200654G430lE1"
-      - value: == 'oc3i06030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "h200654G430l"
-      - value: == 'oc3i07020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "h185975G230lbE1"
-      - value: == 'oc3i07040'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "h185975G750lE1"
-      - value: == 'oc3i08010'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "b21d0607G230lbE1"
-      - value: == 'oc3i09010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "bd54 G230lb E1"
-      - value: == 'oc3i09030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "bd54 G750l"
-      - value: == 'oc3i10020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "bd29 G230lb E1"
-      - value: == 'oc3i12020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "bd02 G430l E1"
-      - value: == 'oc3i12030'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "bd02 G750L"
-      - value: == 'oc3i13010'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "gj75 G230lb E1"
-      - value: == 'oc3i14040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "G191 G750L"
-      - value: == 'oc3i11010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "BD26 G430L E1"
-      - value: == 'oc3i11030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "BD26 G750L"
-      - value: == 'ocga04060'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "GD71 G750L"
-      - value: == 'oceil4060'
-        param_value: 0.15
-        source: preproc.pro
-        reason: "AGK G750L"
-      - value: == 'ocmv01010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD29647 G430L"
-      - value: == 'ocmv26010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD281159 G430L"
-      - value: == 'ocmv32010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD46660 G430L"
-      - value: == 'ocmv0q010'
-        param_value: 0.35
-        source: preproc.pro
-        reason: "HD91983 G430L"
-      - value: == 'ocmv05020'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD73882 G750Ldbl"
-      - value: == 'ocmv0w010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD142096 G430L"
-      - value: == 'ocmv0w020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD142096 G750L"
-      - value: == 'ocmv59010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD198781 G430L"
-      - value: == 'ocmv66010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD199216 G430L"
-      - value: == 'ocmv92020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD239745 G750L"
-      - value: == 'ocmv13010'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD210121 G430L"
-      - value: == 'ocmv0x010'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD142165 G430L"
-      - value: == 'ocmv0x020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD142165 G750L"
-      - value: == 'ocmv53020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD142165 G750L"
-      - value: == 'ocmv85020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD217086 G750L"
-      - value: == 'ocmv69010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD18352 G430L"
-      - value: == 'ocmv22010'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD197702 G430L"
-      - value: == 'ocmv0j010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD146285 G430L"
-      - value: == 'ocmv0j020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD146285 G750L"
-      - value: == 'ob6h01010'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h01020'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h01030'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h01040'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h03010'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h03020'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h03030'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h03040'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h52010'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h52020'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h52030'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h52040'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h54010'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h54020'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h54030'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h54040'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h55010'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h55020'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h55030'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'ob6h55040'
-        param_value: 0.2
-        source: preproc.pro
-        reason: "HD189733 G750M"
-      - value: == 'odd707010'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "KF08T3 G430LE1"
-      - value: == 'odck01060'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "GD71 G750L"
-      - value: == 'odd708020'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "KF08T3 G750L"
-      - value: == 'odck02060'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "GD153 G4750L"
-      - value: == 'odd709020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "KF08T3 G750L"
-      - value: == 'odbvl3010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "AGK G230LBE1"
-      - value: == 'odohl2020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "AGK G230L"
-      - value: == 'odohm10b0'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "AGK G430L"
-      - value: == 'odohm10a0'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "AGK G430L -10.4"
-      - value: == 'odohm10d0'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "AGK G430L 16.6"
-      - value: == 'odohl3010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "AGK G230LBE1"
-      - value: == 'odta05020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD2811g230lbE1"
-      - value: == 'odta05030'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD2811 g430lE1"
-      - value: == 'odta05040'
-        param_value: 0.07
-        source: preproc.pro
-        reason: "HD2811 g750l"
-      - value: == 'odta08010'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "16cygBgyroBad?"
-      - value: == 'odta08020'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "16cygBgyroBad?"
-      - value: == 'odta08030'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "16cygB gyroBad?"
-      - value: == 'odta08040'
-        param_value: 0.3
-        source: preproc.pro
-        reason: "16cygB gyroBad?"
-      - value: == 'odta09020'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD142331 g430l"
-      - value: == 'odta09030'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD142331 g750l"
-      - value: == 'odta13010'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "feige110g230lb"
-      - value: == 'odta13020'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "feige110 g430l"
-      - value: == 'odta03010'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "HD128998g230lb"
-      - value: == 'odta03020'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD128998g2lbE1"
-      - value: == 'odta03030'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD128998g4lbE1"
-      - value: == 'odta03040'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD128998 g430l"
-      - value: == 'odta03050'
-        param_value: 0.27
-        source: preproc.pro
-        reason: "HD128998 g750l"
-      - value: == 'odta03060'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD128998 g750l"
-      - value: == 'odta51010'
-        param_value: 0.09
-        source: preproc.pro
-        reason: "delumi g230lb"
-      - value: == 'odta51020'
-        param_value: 0.09
-        source: preproc.pro
-        reason: "delumi g230lbE1"
-      - value: == 'odta51030'
-        param_value: 0.10
-        source: preproc.pro
-        reason: "delumi g430lE1"
-      - value: == 'odta51040'
-        param_value: 0.09
-        source: preproc.pro
-        reason: "delumi g430l"
-      - value: == 'odta51050'
-        param_value: 0.25
-        source: preproc.pro
-        reason: "delumi g750l"
-      - value: == 'odta51060'
-        param_value: 0.30
-        source: preproc.pro
-        reason: "delumi g750l"
-      - value: == 'odud03010'
-        param_value: 0.01
-        source: preproc.pro
-        reason: " g191 g230lb"
-      - value: == 'odud03030'
-        param_value: 0.10
-        source: preproc.pro
-        reason: " g191 g230lb"
-      - value: == 'odud03040'
-        param_value: 0.03
-        source: preproc.pro
-        reason: " g191 g230lb"
-      - value: == 'odta12010'
-        param_value: 0.12
-        source: preproc.pro
-        reason: " etauma g230lb"
-      - value: == 'odta12050'
-        param_value: 0.06
-        source: preproc.pro
-        reason: " etauma g750l"
-      - value: == 'odvkl1030'
-        param_value: 0.02
-        source: preproc.pro
-        reason: " agk g430l"
-      - value: == 'odvkl1040'
-        param_value: 0.05
-        source: preproc.pro
-        reason: " agk g430l E1"
-      - value: == 'odta14010'
-        param_value: 0.08
-        source: preproc.pro
-        reason: "feige34 230lbE1"
-      - value: == 'odta14020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "feige34 430lE1"
-      - value: == 'odta18010'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HZ44 430lE1"
-      - value: == 'odta18020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HZ44 G230LB E1"
-      - value: == 'odta19010'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "109vir G230LB"
-      - value: == 'odta19020'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "109vir G230LBE1"
-      - value: == 'odta19030'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "109vir G430LBE1"
-      - value: == 'odta19040'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "109vir G430LB"
-      - value: == 'odta19050'
-        param_value: 0.11
-        source: preproc.pro
-        reason: " 109vir G750L"
-      - value: == 'odta19060'
-        param_value: 0.09
-        source: preproc.pro
-        reason: "109vir G750L"
-      - value: == 'odta11010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD115169-230lbE"
-      - value: == 'odta11020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD115169-430l E"
-      - value: == 'odta11030'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD115169-750l"
-      - value: == 'odta07010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "18sco-230lbE1"
-      - value: == 'odta07020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "18sco-G430E1"
-      - value: == 'odta07030'
-        param_value: 0.12
-        source: preproc.pro
-        reason: "18sco-G750L"
-      - value: == 'odta07040'
-        param_value: 0.07
-        source: preproc.pro
-        reason: "18sco-G750L"
-      - value: == 'odta17020'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HZ4-G430E1"
-      - value: == 'odta15010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "HD93521-230lb"
-      - value: == 'odta15020'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "93521-230lbE1"
-      - value: == 'odta15030'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "93521-G430lE1"
-      - value: == 'odta15040'
-        param_value: 0.15
-        source: preproc.pro
-        reason: "93521-G430L"
-      - value: == 'odta15050'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "93521-G750L"
-      - value: == 'odta06030'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "HD55677-G430l"
-      - value: == 'odta06040'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "HD55677-G750L"
-      - value: == 'odud01060'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "GD71-G750L"
-      - value: == 'odta72010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "eta1dor-230lb"
-      - value: == 'odta72020'
-        param_value: 0.06
-        source: preproc.pro
-        reason: "eta1dor230lbE"
-      - value: == 'odta72030'
-        param_value: 0.26
-        source: preproc.pro
-        reason: "eta1dor430lE1"
-      - value: == 'odta72040'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "eta1dor g430l"
-      - value: == 'odta72050'
-        param_value: 0.07
-        source: preproc.pro
-        reason: "eta1dor g750l"
-      - value: == 'odta72060'
-        param_value: 0.08
-        source: preproc.pro
-        reason: "eta1dor g750l"
-      - value: == 'odvkl2040'
-        param_value: 0.15
-        source: preproc.pro
-        reason: "AGK g430l"
-      - value: == 'odta04020'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "hd101452-lbE1"
-      - value: == 'odta04040'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "hd101452 G750"
-      - value: == 'odta60010'
-        param_value: 0.04
-        source: preproc.pro
-        reason: "hd167060-lbE1"
-      - value: == 'odta60020'
-        param_value: 0.01
-        source: preproc.pro
-        reason: "hd167060-43E1"
-      - value: == 'odta60030'
-        param_value: 0.12
-        source: preproc.pro
-        reason: "hd167060-G750L"
-      - value: == 'odud02060'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "G153-G750L"
-      - value: == 'odta16020'
-        param_value: 0.02
-        source: preproc.pro
-        reason: "hz21-g430-E1"
-      - value: == 'oe3653010'
-        param_value: 0.08
-        source: preproc.pro
-        reason: "agk-g230lb-E1"
-      - value: == 'oe3653020'
-        param_value: 0.09
-        source: preproc.pro
-        reason: "agk-g230lb"
-      - value: == 'oe3653030'
-        param_value: 0.12
-        source: preproc.pro
-        reason: "agk-g430l"
-      - value: == 'oe3653040'
-        param_value: 0.10
-        source: preproc.pro
-        reason: "agk-g430l-E1"
-      - value: == 'oe3653060'
-        param_value: 0.33
-        source: preproc.pro
-        reason: "agk-g750l"
-      - value: == 'ocy525f8q'
-        param_value: 0.10
-        source: preproc.pro
-        reason: "HD93250 g750l"
-      - value: == 'ocy527i8q'
-        param_value: 0.25
-        source: preproc.pro
-        reason: "HD164794 g230lb"
-      - value: == 'ocy527ieq'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "HD164794 g430l"
-      - value: == 'ocy527iiq'
-        param_value: 0.03
-        source: preproc.pro
-        reason: "HD164794 g750l"
-      - value: == 'ocy531thq'
-        param_value: 0.3
-        source: preproc.pro
-        reason: "HD217086 g750l"
-      - value: == 'ocy533hvq'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "NGC6611- g750l"
-      - value: == 'ocy533hxq'
-        param_value: 0.15
-        source: preproc.pro
-        reason: "NGC6611- g750l"
-      - value: == 'ocy533hzq'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "NGC6611- g750l"
-      - value: == 'ocy538alq'
-        param_value: 0.15
-        source: preproc.pro
-        reason: "HD207198 g430l"
-      - value: == 'ocy539qcq'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "HD210839 g430l"
-      - value: == 'odvkm1090'
-        param_value: 0.1
-        source: preproc.pro
-        reason: "AGK g430l"
-      - value: == 'oehj01060'
-        param_value: 0.05
-        source: preproc.pro
-        reason: "AGK g750l"
+  default: 0.
+  eval_order:
+  - date
+  - target
+  - root
+  parameters:
+    date:
+    - value: "< '2009'"
+      param_value: 0.03
+      source: preproc.pro
+      reason: Default mulnoise=0.03 for pre-SM4 data
+    target:
+    - value: "== 'HD209458'"
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Default
+        to 0.1
+    root:
+    - values:
+      - o3wy020a0
+      - o3tt21040
+      - o3tt40040
+      - o3tt40040
+      - o3tt42040
+      - o3tt43040
+      - o3tt44040
+      - o3tt45040
+      - o3tt46040
+      - o3tt47040
+      - o49q02050
+      - o49q02070
+      - o4sp04010
+      - o4sp040d0
+      - o49x06010
+      - o49x07010
+      - o49x07010
+      - o49x16010
+      - o49x17010
+      - o49x18010
+      - o49x19010
+      - o49x20010
+      - o49x28010
+      - o57t02020
+      - o61002030
+      - o61003030
+      - o61004030
+      - o3tt41040
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Default
+        to 0.1
+    - value: == 'o57t02020'
+      param_value: 0.4
+      source: preproc.pro
+      reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Set this
+        exposure to 0.4
+    - value: == 'o49x16010'
+      param_value: 0.06
+      source: preproc.pro
+      reason: HD209458 zillion NRPTobs data seems v. sensitive to rejection. Set this
+        exposure to 0.06
+    - values:
+      - oa9j020l0
+      - oa9j020m0
+      - obau01020
+      - obbc10020
+      - obbc07040
+      - obau02020
+      - obau02040
+      - obau04020
+      param_value: 0.03
+      source: preproc.pro
+      reason: none provided
+    - value: == 'obc401060'
+      param_value: 0.03
+      source: preproc.pro
+      reason: G191, G430L
+    - value: == 'obc404010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: P330E, G430L
+    - value: == 'obc404020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: P330E, G750L
+    - value: == 'obc405030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd165459 230lb
+    - value: == 'obc405050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd165459 g430l
+    - value: == 'obc405060'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd165459 g50l
+    - value: == 'obmzl1020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: agk g230lb
+    - value: == 'obc402050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: gd153 g430l
+    - value: == 'obnf06010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: P330E g430l-E1
+    - value: == 'obnl09010'
+      param_value: 0.10
+      source: preproc.pro
+      reason: HD38949 g750L
+    - value: == 'obnl09030'
+      param_value: 0.10
+      source: preproc.pro
+      reason: HD38949 g430L
+    - value: == 'obnl08010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD37962 g430L
+    - value: == 'obnl08020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD37962 g230LB
+    - value: == 'obnl08030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD37962 g750L
+    - value: == 'obnl10010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD106252 g430L
+    - value: == 'obnl10020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD106252g230LB
+    - value: == 'obnl10030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD106252 g750L
+    - value: == 'obnl11010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD205905 g430L
+    - value: == 'obnl11020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD205905g230LB
+    - value: == 'obnl11030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD205905 g750L
+    - value: == 'obnl03020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD116405G230LB
+    - value: == 'obnl03040'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD116405 G750L
+    - value: == 'obnl06020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD180609G230LB
+    - value: == 'obnl07030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: BD+60D1753 G430L
+    - value: == 'obnl12010'
+      param_value: 0.05
+      source: preproc.pro
+      reason: HD27836 G430L
+    - value: == 'obnl12030'
+      param_value: 0.06
+      source: preproc.pro
+      reason: HD27836 G430L
+    - value: == 'obvp06060'
+      param_value: 0.03
+      source: preproc.pro
+      reason: gd71 G750L
+    - value: == 'obto03020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD158485 g230LB
+    - value: == 'obto09010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd60753 g430L
+    - value: == 'obto09020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: hd60753 g430LE
+    - value: == 'obto09030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd60753 g230LBE
+    - value: == 'obto09040'
+      param_value: 0.01
+      source: preproc.pro
+      reason: hd60753 g230LB
+    - value: == 'obto09050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd60753 g750L
+    - value: == 'obto05050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: lamlep g750L
+    - value: == 'obto07050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: mu col g750L
+    - value: == 'obto01020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: 159222 g230LB
+    - value: == 'obto01030'
+      param_value: 0.1
+      source: preproc.pro
+      reason: 159222 g750L
+    - value: == 'obto08010'
+      param_value: 0.1
+      source: preproc.pro
+      reason: ksi2Cet g430L
+    - value: == 'obto08030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: ksi2Cet g430L
+    - value: == 'obto08040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: ksi2Cet g430L
+    - value: == 'obto08050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: ksi2Cet g430L
+    - value: == 'obto04020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: Hd163466 230lb
+    - value: == 'obto04030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: Hd163466 430LE
+    - value: == 'obto04050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: Hd163466 G750L
+    - value: == 'obto02040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: Hd14943 G430L
+    - value: == 'obto02050'
+      param_value: 0.03
+      source: preproc.pro
+      reason: Hd14943 G750L
+    - value: == 'obto06010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: 10Lac G430L
+    - value: == 'obto06020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: 10Lac G430LE1
+    - value: == 'obto06030'
+      param_value: 0.06
+      source: preproc.pro
+      reason: 10Lac G230LBE1
+    - value: == 'obto06040'
+      param_value: 0.06
+      source: preproc.pro
+      reason: 10Lac G230LB
+    - value: == 'obto06050'
+      param_value: 0.06
+      source: preproc.pro
+      reason: 10Lac G750L
+    - value: == 'oc3i01010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: hd9051 G230lbE
+    - value: == 'oc3i01020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd9051 G430lE1
+    - value: == 'oc3i01030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd9051 G430l
+    - value: == 'oc3i01040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd9051 G750l
+    - value: == 'oc3i02010'
+      param_value: 0.06
+      source: preproc.pro
+      reason: hd31128G230lbE
+    - value: == 'oc3i02020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: '...    G430LE1'
+    - value: == 'oc3i02040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: '...    G750L'
+    - value: == 'oc3i03010'
+      param_value: 0.02
+      source: preproc.pro
+      reason: hd74000G230lbE
+    - value: == 'oc3i04040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd111980 G750L
+    - value: == 'oc3i05010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: h160617G230lbE1
+    - value: == 'oc3i05020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: h160617G430lE1
+    - value: == 'oc3i05040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: h160617G750L
+    - value: == 'oc3i06020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: h200654G430lE1
+    - value: == 'oc3i06030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: h200654G430l
+    - value: == 'oc3i07020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: h185975G230lbE1
+    - value: == 'oc3i07040'
+      param_value: 0.01
+      source: preproc.pro
+      reason: h185975G750lE1
+    - value: == 'oc3i08010'
+      param_value: 0.02
+      source: preproc.pro
+      reason: b21d0607G230lbE1
+    - value: == 'oc3i09010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: bd54 G230lb E1
+    - value: == 'oc3i09030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: bd54 G750l
+    - value: == 'oc3i10020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: bd29 G230lb E1
+    - value: == 'oc3i12020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: bd02 G430l E1
+    - value: == 'oc3i12030'
+      param_value: 0.02
+      source: preproc.pro
+      reason: bd02 G750L
+    - value: == 'oc3i13010'
+      param_value: 0.01
+      source: preproc.pro
+      reason: gj75 G230lb E1
+    - value: == 'oc3i14040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: G191 G750L
+    - value: == 'oc3i11010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: BD26 G430L E1
+    - value: == 'oc3i11030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: BD26 G750L
+    - value: == 'ocga04060'
+      param_value: 0.05
+      source: preproc.pro
+      reason: GD71 G750L
+    - value: == 'oceil4060'
+      param_value: 0.15
+      source: preproc.pro
+      reason: AGK G750L
+    - value: == 'ocmv01010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD29647 G430L
+    - value: == 'ocmv26010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD281159 G430L
+    - value: == 'ocmv32010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD46660 G430L
+    - value: == 'ocmv0q010'
+      param_value: 0.35
+      source: preproc.pro
+      reason: HD91983 G430L
+    - value: == 'ocmv05020'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD73882 G750Ldbl
+    - value: == 'ocmv0w010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD142096 G430L
+    - value: == 'ocmv0w020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD142096 G750L
+    - value: == 'ocmv59010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD198781 G430L
+    - value: == 'ocmv66010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD199216 G430L
+    - value: == 'ocmv92020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD239745 G750L
+    - value: == 'ocmv13010'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD210121 G430L
+    - value: == 'ocmv0x010'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD142165 G430L
+    - value: == 'ocmv0x020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD142165 G750L
+    - value: == 'ocmv53020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD142165 G750L
+    - value: == 'ocmv85020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD217086 G750L
+    - value: == 'ocmv69010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD18352 G430L
+    - value: == 'ocmv22010'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD197702 G430L
+    - value: == 'ocmv0j010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD146285 G430L
+    - value: == 'ocmv0j020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD146285 G750L
+    - value: == 'ob6h01010'
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h01020'
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h01030'
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h01040'
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h03010'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h03020'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h03030'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h03040'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h52010'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h52020'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h52030'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h52040'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h54010'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h54020'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h54030'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h54040'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h55010'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h55020'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h55030'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'ob6h55040'
+      param_value: 0.2
+      source: preproc.pro
+      reason: HD189733 G750M
+    - value: == 'odd707010'
+      param_value: 0.05
+      source: preproc.pro
+      reason: KF08T3 G430LE1
+    - value: == 'odck01060'
+      param_value: 0.1
+      source: preproc.pro
+      reason: GD71 G750L
+    - value: == 'odd708020'
+      param_value: 0.05
+      source: preproc.pro
+      reason: KF08T3 G750L
+    - value: == 'odck02060'
+      param_value: 0.05
+      source: preproc.pro
+      reason: GD153 G4750L
+    - value: == 'odd709020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: KF08T3 G750L
+    - value: == 'odbvl3010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: AGK G230LBE1
+    - value: == 'odohl2020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: AGK G230L
+    - value: == 'odohm10b0'
+      param_value: 0.03
+      source: preproc.pro
+      reason: AGK G430L
+    - value: == 'odohm10a0'
+      param_value: 0.1
+      source: preproc.pro
+      reason: AGK G430L -10.4
+    - value: == 'odohm10d0'
+      param_value: 0.03
+      source: preproc.pro
+      reason: AGK G430L 16.6
+    - value: == 'odohl3010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: AGK G230LBE1
+    - value: == 'odta05020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD2811g230lbE1
+    - value: == 'odta05030'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD2811 g430lE1
+    - value: == 'odta05040'
+      param_value: 0.07
+      source: preproc.pro
+      reason: HD2811 g750l
+    - value: == 'odta08010'
+      param_value: 0.02
+      source: preproc.pro
+      reason: 16cygBgyroBad?
+    - value: == 'odta08020'
+      param_value: 0.04
+      source: preproc.pro
+      reason: 16cygBgyroBad?
+    - value: == 'odta08030'
+      param_value: 0.1
+      source: preproc.pro
+      reason: 16cygB gyroBad?
+    - value: == 'odta08040'
+      param_value: 0.3
+      source: preproc.pro
+      reason: 16cygB gyroBad?
+    - value: == 'odta09020'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD142331 g430l
+    - value: == 'odta09030'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD142331 g750l
+    - value: == 'odta13010'
+      param_value: 0.03
+      source: preproc.pro
+      reason: feige110g230lb
+    - value: == 'odta13020'
+      param_value: 0.05
+      source: preproc.pro
+      reason: feige110 g430l
+    - value: == 'odta03010'
+      param_value: 0.06
+      source: preproc.pro
+      reason: HD128998g230lb
+    - value: == 'odta03020'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD128998g2lbE1
+    - value: == 'odta03030'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD128998g4lbE1
+    - value: == 'odta03040'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD128998 g430l
+    - value: == 'odta03050'
+      param_value: 0.27
+      source: preproc.pro
+      reason: HD128998 g750l
+    - value: == 'odta03060'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD128998 g750l
+    - value: == 'odta51010'
+      param_value: 0.09
+      source: preproc.pro
+      reason: delumi g230lb
+    - value: == 'odta51020'
+      param_value: 0.09
+      source: preproc.pro
+      reason: delumi g230lbE1
+    - value: == 'odta51030'
+      param_value: 0.10
+      source: preproc.pro
+      reason: delumi g430lE1
+    - value: == 'odta51040'
+      param_value: 0.09
+      source: preproc.pro
+      reason: delumi g430l
+    - value: == 'odta51050'
+      param_value: 0.25
+      source: preproc.pro
+      reason: delumi g750l
+    - value: == 'odta51060'
+      param_value: 0.30
+      source: preproc.pro
+      reason: delumi g750l
+    - value: == 'odud03010'
+      param_value: 0.01
+      source: preproc.pro
+      reason: ' g191 g230lb'
+    - value: == 'odud03030'
+      param_value: 0.10
+      source: preproc.pro
+      reason: ' g191 g230lb'
+    - value: == 'odud03040'
+      param_value: 0.03
+      source: preproc.pro
+      reason: ' g191 g230lb'
+    - value: == 'odta12010'
+      param_value: 0.12
+      source: preproc.pro
+      reason: ' etauma g230lb'
+    - value: == 'odta12050'
+      param_value: 0.06
+      source: preproc.pro
+      reason: ' etauma g750l'
+    - value: == 'odvkl1030'
+      param_value: 0.02
+      source: preproc.pro
+      reason: ' agk g430l'
+    - value: == 'odvkl1040'
+      param_value: 0.05
+      source: preproc.pro
+      reason: ' agk g430l E1'
+    - value: == 'odta14010'
+      param_value: 0.08
+      source: preproc.pro
+      reason: feige34 230lbE1
+    - value: == 'odta14020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: feige34 430lE1
+    - value: == 'odta18010'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HZ44 430lE1
+    - value: == 'odta18020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HZ44 G230LB E1
+    - value: == 'odta19010'
+      param_value: 0.02
+      source: preproc.pro
+      reason: 109vir G230LB
+    - value: == 'odta19020'
+      param_value: 0.06
+      source: preproc.pro
+      reason: 109vir G230LBE1
+    - value: == 'odta19030'
+      param_value: 0.04
+      source: preproc.pro
+      reason: 109vir G430LBE1
+    - value: == 'odta19040'
+      param_value: 0.05
+      source: preproc.pro
+      reason: 109vir G430LB
+    - value: == 'odta19050'
+      param_value: 0.11
+      source: preproc.pro
+      reason: ' 109vir G750L'
+    - value: == 'odta19060'
+      param_value: 0.09
+      source: preproc.pro
+      reason: 109vir G750L
+    - value: == 'odta11010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD115169-230lbE
+    - value: == 'odta11020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD115169-430l E
+    - value: == 'odta11030'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD115169-750l
+    - value: == 'odta07010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: 18sco-230lbE1
+    - value: == 'odta07020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: 18sco-G430E1
+    - value: == 'odta07030'
+      param_value: 0.12
+      source: preproc.pro
+      reason: 18sco-G750L
+    - value: == 'odta07040'
+      param_value: 0.07
+      source: preproc.pro
+      reason: 18sco-G750L
+    - value: == 'odta17020'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HZ4-G430E1
+    - value: == 'odta15010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: HD93521-230lb
+    - value: == 'odta15020'
+      param_value: 0.04
+      source: preproc.pro
+      reason: 93521-230lbE1
+    - value: == 'odta15030'
+      param_value: 0.06
+      source: preproc.pro
+      reason: 93521-G430lE1
+    - value: == 'odta15040'
+      param_value: 0.15
+      source: preproc.pro
+      reason: 93521-G430L
+    - value: == 'odta15050'
+      param_value: 0.01
+      source: preproc.pro
+      reason: 93521-G750L
+    - value: == 'odta06030'
+      param_value: 0.01
+      source: preproc.pro
+      reason: HD55677-G430l
+    - value: == 'odta06040'
+      param_value: 0.02
+      source: preproc.pro
+      reason: HD55677-G750L
+    - value: == 'odud01060'
+      param_value: 0.05
+      source: preproc.pro
+      reason: GD71-G750L
+    - value: == 'odta72010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: eta1dor-230lb
+    - value: == 'odta72020'
+      param_value: 0.06
+      source: preproc.pro
+      reason: eta1dor230lbE
+    - value: == 'odta72030'
+      param_value: 0.26
+      source: preproc.pro
+      reason: eta1dor430lE1
+    - value: == 'odta72040'
+      param_value: 0.04
+      source: preproc.pro
+      reason: eta1dor g430l
+    - value: == 'odta72050'
+      param_value: 0.07
+      source: preproc.pro
+      reason: eta1dor g750l
+    - value: == 'odta72060'
+      param_value: 0.08
+      source: preproc.pro
+      reason: eta1dor g750l
+    - value: == 'odvkl2040'
+      param_value: 0.15
+      source: preproc.pro
+      reason: AGK g430l
+    - value: == 'odta04020'
+      param_value: 0.03
+      source: preproc.pro
+      reason: hd101452-lbE1
+    - value: == 'odta04040'
+      param_value: 0.02
+      source: preproc.pro
+      reason: hd101452 G750
+    - value: == 'odta60010'
+      param_value: 0.04
+      source: preproc.pro
+      reason: hd167060-lbE1
+    - value: == 'odta60020'
+      param_value: 0.01
+      source: preproc.pro
+      reason: hd167060-43E1
+    - value: == 'odta60030'
+      param_value: 0.12
+      source: preproc.pro
+      reason: hd167060-G750L
+    - value: == 'odud02060'
+      param_value: 0.05
+      source: preproc.pro
+      reason: G153-G750L
+    - value: == 'odta16020'
+      param_value: 0.02
+      source: preproc.pro
+      reason: hz21-g430-E1
+    - value: == 'oe3653010'
+      param_value: 0.08
+      source: preproc.pro
+      reason: agk-g230lb-E1
+    - value: == 'oe3653020'
+      param_value: 0.09
+      source: preproc.pro
+      reason: agk-g230lb
+    - value: == 'oe3653030'
+      param_value: 0.12
+      source: preproc.pro
+      reason: agk-g430l
+    - value: == 'oe3653040'
+      param_value: 0.10
+      source: preproc.pro
+      reason: agk-g430l-E1
+    - value: == 'oe3653060'
+      param_value: 0.33
+      source: preproc.pro
+      reason: agk-g750l
+    - value: == 'ocy525f8q'
+      param_value: 0.10
+      source: preproc.pro
+      reason: HD93250 g750l
+    - value: == 'ocy527i8q'
+      param_value: 0.25
+      source: preproc.pro
+      reason: HD164794 g230lb
+    - value: == 'ocy527ieq'
+      param_value: 0.05
+      source: preproc.pro
+      reason: HD164794 g430l
+    - value: == 'ocy527iiq'
+      param_value: 0.03
+      source: preproc.pro
+      reason: HD164794 g750l
+    - value: == 'ocy531thq'
+      param_value: 0.3
+      source: preproc.pro
+      reason: HD217086 g750l
+    - value: == 'ocy533hvq'
+      param_value: 0.05
+      source: preproc.pro
+      reason: NGC6611- g750l
+    - value: == 'ocy533hxq'
+      param_value: 0.15
+      source: preproc.pro
+      reason: NGC6611- g750l
+    - value: == 'ocy533hzq'
+      param_value: 0.05
+      source: preproc.pro
+      reason: NGC6611- g750l
+    - value: == 'ocy538alq'
+      param_value: 0.15
+      source: preproc.pro
+      reason: HD207198 g430l
+    - value: == 'ocy539qcq'
+      param_value: 0.1
+      source: preproc.pro
+      reason: HD210839 g430l
+    - value: == 'odvkm1090'
+      param_value: 0.1
+      source: preproc.pro
+      reason: AGK g430l
+    - value: == 'oehj01060'
+      param_value: 0.05
+      source: preproc.pro
+      reason: AGK g750l
 
+    - value: == 'oehk01010'
+      user:
+        name: BY
+        date: '2023-02-14T16:42:42'
+        param_value: 0.02
+        reason: Default CR flagging flags some of the spectrum
 skysub:
-    default: ""
-    eval_order:
-    - subarray
-    parameters:
-    - subarray:
-      - value: == True
-        param_value: "none"
-        source: preproc.pro
-        reason: No sky subtraction for subarray data
+  default: ''
+  eval_order:
+  - subarray
+  parameters:
+    subarray:
+    - value: == True
+      param_value: none
+      source: preproc.pro
+      reason: No sky subtraction for subarray data
 
 wavecal:
-    default: "file"
-    eval_order:
-    - target
-    - root
-    parameters:
-    - target:
-      - value: "== 'NONE'"
-        source: preproc.pro
-        reason: "97nov10 - wavecal for tungsten for 7063 & 7805"
-        eval_order:
-          - root
-        parameters:
-          - root:
-            - value: "*o49q*"
-              param_value: "o49q02060_raw.fits"
-            - value: "!o4d1*"
-              param_value: "replace:filename:30_:40_"
-      
-    - root:
-      - value: "== o3zx08i9m"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o3zx08ifm_raw.fits"
-      - value: "== o4dd05lgq"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o4dd05080_wav.fits"
-      - value: "== o4pg02qcq"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o4pg02qiq_raw.fits"
-      - value: "== o4pg02qkq"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o4pg02qmq_raw.fits"
-      - value: "== o6ig01040"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o6ig01bkq_raw.fits"
-      - value: "== o6ig01050"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o6ig01bnq_raw.fits"
-      - value: "== o6ig01060"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o6ig01bsq_raw.fits"
-      - value: "== o6ig01b7q"
-        source: preproc.pro
-        reason: 'patches for "orphan" wavecal=old TRANS error in 2 cases'
-        param_value: "o6ig01baq_raw.fits"
-      - value: "== o8v201040"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v201gmq_raw.fits"
-      - value: "== o8v201050"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v201gmq_raw.fits"
-      - value: "== o8v201090"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v201h4q_raw.fits"
-      - value: "== o8v201g6q"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v201geq_raw.fits"
-      - value: "== o8v201guq"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v201gzq_raw.fits"
-      - value: "== o8v202030"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202fzq_raw.fits"
-      - value: "== o8v202040"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202fzq_raw.fits"
-      - value: "== o8v202050"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202g8q_raw.fits"
-      - value: "== o8v202060"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202g8q_raw.fits"
-      - value: "== o8v202070"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202gcq_raw.fits"
-      - value: "== o8v202f7q"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202fgq_raw.fits"
-      - value: "== o8v202fhq"
-        source: preproc.pro
-        reason: "propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:"
-        param_value: "o8v202flq_raw.fits"
-      - value: "o6il02*"
-        source: preproc.pro
-        reason: "479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets in stiswlfix!!"
-        param_value: "none"
-      - value: "o6ig010c*"
-        source: preproc.pro
-        reason: "479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets in stiswlfix!!"
-        param_value: "none"
-      - value: "o6b6010*"
-        source: preproc.pro
-        reason: "479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets in stiswlfix!!"
-        param_value: "none"
-      - value: "6ig0108*"
-        source: preproc.pro
-        reason: "481: 04jun6-finley narr slit"
-        param_value: "none"
-      - value: "6ig0109*"
-        source: preproc.pro
-        reason: "481: 04jun6-finley narr slit"
-        param_value: "none"
-      - value: "6ig010a*"
-        source: preproc.pro
-        reason: "481: 04jun6-finley narr slit"
-        param_value: "none"
-      - value: "6ig010b*"
-        source: preproc.pro
-        reason: "481: 04jun6-finley narr slit"
-        param_value: "none"
+  default: file
+  eval_order:
+  - target
+  - root
+  parameters:
+    target:
+    - value: == 'NONE'
+      source: preproc.pro
+      reason: 97nov10 - wavecal for tungsten for 7063 & 7805
+      eval_order:
+      - root
+      parameters:
+        root:
+        - value: '*o49q*'
+          param_value: o49q02060_raw.fits
+        - value: '!o4d1*'
+          param_value: replace:filename:30_:40_
+    root:
+    - value: == "o3zx08i9m"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o3zx08ifm_raw.fits
+    - value: == "o4dd05lgq"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o4dd05080_wav.fits
+    - value: == "o4pg02qcq"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o4pg02qiq_raw.fits
+    - value: == "o4pg02qkq"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o4pg02qmq_raw.fits
+    - value: == "o6ig01040"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o6ig01bkq_raw.fits
+    - value: == "o6ig01050"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o6ig01bnq_raw.fits
+    - value: == "o6ig01060"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o6ig01bsq_raw.fits
+    - value: == "o6ig01b7q"
+      source: preproc.pro
+      reason: patches for "orphan" wavecal=old TRANS error in 2 cases
+      param_value: o6ig01baq_raw.fits
+    - value: == "o8v201040"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v201gmq_raw.fits
+    - value: == "o8v201050"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v201gmq_raw.fits
+    - value: == "o8v201090"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v201h4q_raw.fits
+    - value: == "o8v201g6q"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v201geq_raw.fits
+    - value: == "o8v201guq"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v201gzq_raw.fits
+    - value: == "o8v202030"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202fzq_raw.fits
+    - value: == "o8v202040"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202fzq_raw.fits
+    - value: == "o8v202050"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202g8q_raw.fits
+    - value: == "o8v202060"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202g8q_raw.fits
+    - value: == "o8v202070"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202gcq_raw.fits
+    - value: == "o8v202f7q"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202fgq_raw.fits
+    - value: == "o8v202fhq"
+      source: preproc.pro
+      reason: 'propid=10039. SOME parts are hand tooled to have NON-assoc wavecals:'
+      param_value: o8v202flq_raw.fits
+    - value: o6il02*
+      source: preproc.pro
+      reason: '479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets
+        in stiswlfix!!'
+      param_value: none
+    - value: o6ig010c*
+      source: preproc.pro
+      reason: '479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets
+        in stiswlfix!!'
+      param_value: none
+    - value: o6b6010*
+      source: preproc.pro
+      reason: '479: AGK, propid=9265, dir7672, no wavecals. Meas and put 16 offsets
+        in stiswlfix!!'
+      param_value: none
+    - value: 6ig0108*
+      source: preproc.pro
+      reason: '481: 04jun6-finley narr slit'
+      param_value: none
+    - value: 6ig0109*
+      source: preproc.pro
+      reason: '481: 04jun6-finley narr slit'
+      param_value: none
+    - value: 6ig010a*
+      source: preproc.pro
+      reason: '481: 04jun6-finley narr slit'
+      param_value: none
+    - value: 6ig010b*
+      source: preproc.pro
+      reason: '481: 04jun6-finley narr slit'
+      param_value: none
 
-extraction_width:
-    default: 11
-    eval_order:
-    - target
-    - root
-    parameters:
-    - target:
-      - values:
-        - Vega
-        - Sirius
-        - HZ43
-        eval_order:
-          - obsmode
-        parameters:
-          - obsmode:
-            - value: "== 'G750L'"
-              param_value: 7
-              source: preproc.pro
-              reason: "Vega/Sirius/HZ43 GL750 get a 7 pixel extraction height"
-      - value: "== 'HD281159'"
-        source: "preproc.pro:522"
-        reason: "Mass dbl stars"
-        param_val: 15
-      - value: "== 'HD73882'"
-        source: "preproc.pro:522"
-        reason: "Mass dbl stars"
-        param_val: 23
-    - root:
-      - value: "== 'o69u07030'"
-        source: "preproc.pro:519"
-        reason: "v.faint M* HZ43B F750L"
-        param_val: 11
-      - values:
-        - "o8i105020"
-        - "o8i106030"
-        source: preproc.pro:526
-        reason: "Saturated Vega G230LB"
-        param_val: 84
-      - values:
-        - "o8i105050"
-        - "o8i105060"
-        - "o8i106010"
-        - "o8i106040"
-        source: preproc.pro:528
-        reason: "Saturated Vega G430L"
-        param_val: 54
+extrsize:
+  default: 11
+  eval_order:
+  - target
+  - root
+  parameters:
+    target:
+    - values:
+      - Vega
+      - Sirius
+      - HZ43
+      eval_order:
+      - obsmode
+      parameters:
+        obsmode:
+        - value: == 'G750L'
+          param_value: 7
+          source: preproc.pro
+          reason: Vega/Sirius/HZ43 GL750 get a 7 pixel extraction height
+    - value: == 'HD281159'
+      source: preproc.pro:522
+      reason: Mass dbl stars
+      param_val: 15
+    - value: == 'HD73882'
+      source: preproc.pro:522
+      reason: Mass dbl stars
+      param_val: 23
+    root:
+    - value: == 'o69u07030'
+      source: preproc.pro:519
+      reason: v.faint M* HZ43B F750L
+      param_val: 11
+    - values:
+      - o8i105020
+      - o8i106030
+      source: preproc.pro:526
+      reason: Saturated Vega G230LB
+      param_val: 84
+    - values:
+      - o8i105050
+      - o8i105060
+      - o8i106010
+      - o8i106040
+      source: preproc.pro:528
+      reason: Saturated Vega G430L
+      param_val: 54
