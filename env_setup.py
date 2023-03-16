@@ -22,6 +22,7 @@ This file is intended to be run from the command line::
 import json
 import os
 import platform
+from ruamel.yaml import YAML
 import shutil
 import subprocess
 import sys
@@ -64,6 +65,17 @@ def main(**kwargs):
         # Find the URL of the latest STScI release tag
         json_data = json.loads(urlopen(conf['info_url']).read())
         stenv_tag = json_data['tag_name']
+        
+        if stenv_tag > conf["latest_known_tag"]:
+            msg = "Updating latest tag from {} to {}\n"
+            sys.stdout.write(msg.format(conf['latest_known_tag'], stenv_tag))
+            
+            ryaml = YAML()
+            with open("env_config.yaml") as inf:
+                new_config = ryaml.load(inf)
+            new_config["latest_known_tag"] = stenv_tag
+            with open("env_config.yaml", mode="w") as outf:
+                ryaml.dump(new_config, outf)
     except Exception as e:
         sys.stderr.write("Retrieval error: {}\n".format(e))
         stenv_tag = conf["latest_known_tag"]
