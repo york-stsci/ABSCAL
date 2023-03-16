@@ -10,6 +10,8 @@ Bohlin's IDL code in python.
 
 *Ensuring that 30 years of calibration software are useful for the next 30 years.*
 
+*Scio enim passus sum, et nunc vicissim tuum est*
+
 Installation and Documentation
 ------------------------------
 

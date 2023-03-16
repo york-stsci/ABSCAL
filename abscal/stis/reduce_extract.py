@@ -62,6 +62,7 @@ import numpy as np
 import os
 from pathlib import Path
 import PySimpleGUI as sg
+from scipy.signal import find_peaks_cwt
 import shutil
 from stistools import basic2d
 from stistools import ocrreject
@@ -70,22 +71,184 @@ import traceback
 import yaml
 
 from abscal.common.args import parse
-from abscal.common.plots import draw_figure
-from abscal.common.plots import make_img_fig
-from abscal.common.plots import make_figure_window
-from abscal.common.plots import make_params_window
-from abscal.common.plots import make_spectrum_window
+from abscal.common.ui import handle_parameter_window
+from abscal.common.ui import ImageWindow
+from abscal.common.ui import run_task
+from abscal.common.ui import SpectrumWindow
+from abscal.common.ui import TaskWindow
+from abscal.common.ui import TwoColumnWindow
+from abscal.common.utils import check_params
 from abscal.common.utils import get_value
 from abscal.common.utils import get_data_file
 from abscal.common.utils import get_defaults
+from abscal.common.utils import get_param_types
 from abscal.common.utils import handle_parameter
 from abscal.common.utils import initialize_value
 from abscal.common.utils import set_params
 from abscal.common.utils import set_image
+from abscal.common.utils import setup_params
 from abscal.stis.stis_data_table import STISDataTable
 
 
-def reduce_flatfield(input_table, **kwargs):
+class ExtractionInfoWindow(ImageWindow):
+    """
+    This is a version of the ImageWindow that also plots the extraction region and the 
+    background regions.
+    """
+    def set_up_config(self, kwargs):
+        self.extraction_file = self.handle_kwarg('extraction_file', None, kwargs)
+        return super().set_up_config(kwargs)
+    
+    def get_line_data(self):
+        line_data = {}
+        with fits.open(self.extraction_file) as x1df:
+            spec_loc = x1df[1].data['EXTRLOCY'][0]
+            line_data['spec_low'] = spec_loc - x1df[1].data["EXTRSIZE"][0]//2
+            line_data['spec_high'] = spec_loc + x1df[1].data["EXTRSIZE"][0]//2
+    
+            b1_loc = spec_loc + x1df[1].data["BK1OFFST"][0]
+            line_data['b1_low'] = b1_loc - x1df[1].data["BK1SIZE"][0]//2
+            line_data['b1_high'] = b1_loc + x1df[1].data["BK1SIZE"][0]//2
+    
+            b2_loc = spec_loc + x1df[1].data["BK2OFFST"][0]
+            line_data['b2_low'] = b2_loc - x1df[1].data["BK2SIZE"][0]//2
+            line_data['b2_high'] = b2_loc + x1df[1].data["BK2SIZE"][0]//2
+        return line_data
+
+    def create_figure(self):
+        figure = super().create_figure()
+        ax = figure.axes[0]
+        line_data = self.get_line_data()
+        extr_lines = {}
+        x_arr = np.arange(1024, dtype=np.int32)
+        extr_lines["spec_low"] = ax.plot(x_arr, line_data['spec_low'], color='green', 
+            label='Extraction Region')[0]
+        extr_lines["spec_high"] = ax.plot(x_arr, line_data['spec_high'], color='green')[0]
+        extr_lines["b1_low"] = ax.plot(x_arr, line_data['b1_low'], color='red', 
+            label='Background 1 Region')[0]
+        extr_lines["b1_high"] = ax.plot(x_arr, line_data['b1_high'], color='red')[0]
+        extr_lines["b2_low"] = ax.plot(x_arr, line_data['b2_low'], color='blue', 
+            label='Background 2 Region')[0]
+        extr_lines["b2_high"] = ax.plot(x_arr, line_data['b2_high'], color='blue')[0]
+        ax.legend()
+        self.lines = extr_lines
+        return figure
+
+    def update_figure(self, **kwargs):
+        """
+        Updates the figure image, using the file and log settings from the initial 
+        creation. The keyword arguments aren't used here, but are provided for subclasses
+        where it's possible that only a partial update might be needed (e.g. only updating
+        plot lines, only updating data image, only updating visibility, etc.)
+        """
+        line_data = self.get_line_data()
+        for key in line_data:
+            self.lines[key].set_ydata(line_data[key])
+        super().update_figure(**kwargs)
+
+
+class CosmicRayWindow(TwoColumnWindow):
+    """
+    This is a version of the ImageWindow that includes a function to get the approximate
+    spectrum location (based on doing a collapse of the image along the spectral direction),
+    and offering the option of showing the (approximate) extraction region on the image of
+    cosmic ray flags, to offer the option of a guide for seeing whether the cosmic ray 
+    flagging has accidentally flagged some part of the spectral trace.
+    """
+    def set_up_config(self, kwargs):
+        self.extrsize = self.handle_kwarg('extrsize', 11., kwargs)
+        self.trace_file = self.handle_kwarg('trace_file', None, kwargs)
+        return super().set_up_config(kwargs)
+    
+    def make_ui_column(self):
+        trace_check = sg.Checkbox("Show Approximate Spectral Trace", default=True,
+                                  text_color="red", key="trace", enable_events=True,
+                                  background_color="white")
+        trace_frame = sg.Frame("Trace:", [[trace_check]], background_color="white",
+                               title_color="black")
+        trace_col = sg.Column([[trace_frame]])
+        return trace_col
+    
+    def get_trace_data(self):
+        peaks = self.get_approximate_peak()
+        y_vals = []
+        if len(peaks) == 0:
+            print("{}: WARNING: no spectral trace found".format(self.data_file))
+            return y_vals
+        if len(peaks) > 1:
+            print("{}: WARNING: multiple possible traces found".format(self.data_file))
+        for peak in peaks:
+            y_vals.append(peak-self.extrsize/2)
+            y_vals.append(peak+self.extrsize/2)
+        return y_vals
+    
+    def get_image_data(self):
+        cr_flag_value = 8192
+        with fits.open(self.data_file) as dat:
+            cr_flag_dat = np.zeros_like(dat["DQ"].data, dtype=np.int32)
+            for ext in dat:
+                if dat[ext].name == 'DQ':
+                    cr_flag_dat += np.where(dat[ext].data & cr_flag_value != 0, 1, 0)
+        return cr_flag_dat
+    
+    def create_figure(self):
+        figure = super().create_figure()
+        ax = figure.axes[0]
+        self.lines = []
+        for value in self.get_trace_data():
+            self.lines.append(ax.axhline(value, color="red", linestyle='dotted'))
+        return figure
+
+    def update_figure(self, **kwargs):
+        update_data = kwargs.get("update_data", True)
+        for line in self.lines:
+            line.set_visible(self['trace'].Get())
+        if update_data:
+            y_vals = self.get_trace_data()
+            for line, val in zip(self.lines, y_vals):
+                line.set_ydata(val)
+            super().update_figure()
+        else:
+            self.figure.canvas.draw()
+    
+    def get_approximate_peak(self):
+        """
+        Gets an approximate spectrum location by 
+        - summing the spectrum along the X axis
+        - subtracting the medium
+        - setting any value < 0.1 of the maximum value to 0.
+        - running a peak-finding routine
+        """
+        with fits.open(self.trace_file) as data_file:
+            dat = np.median(data_file[1].data, axis=1)
+            dat -= np.median(dat)
+            dat = np.where(dat>=0.1*np.max(dat), dat, 0.)
+            peaks = find_peaks_cwt(dat, [10])
+        return peaks
+
+
+class CosmicRayTaskWindow(TaskWindow):
+    """
+    Modified version of the TaskWindow that adds in buttons for tweaking up and down
+    the scalense parameter.
+    """
+    def add_to_layout(self, layout):
+        layout.append([sg.Button('Flag More CRs'), sg.Push(), sg.Button('Flag Fewer CRs')])
+        return layout
+    
+    def handle_ui_event(self, event, values):
+        if event == "Flag More CRs":
+            self.params["scalense"] = "{}".format(float(self.params["scalense"]) - 1.)
+            self["scalense"].Update(self.params["scalense"])
+            return True
+        elif event == "Flag Fewer CRs":
+            self.params["scalense"] = "{}".format(float(self.params["scalense"]) + 1.)
+            self["scalense"].Update(self.params["scalense"])
+            return True
+        return super().handle_ui_event(event, values)
+
+
+def reduce_flatfield(input_row, **kwargs):
     """
     Perform the calstis "basic2d" data reduction, including iterating on cosmic ray
     rejection. This is done by repeatedly calling the calstis "basic2d" on the raw STIS
@@ -94,7 +257,7 @@ def reduce_flatfield(input_table, **kwargs):
 
     Parameters
     ----------
-    input_table : abscal.stis.stis_data_table.STISDataTable
+    input_row : abscal.stis.stis_data_table.STISDataTable
         Single-row input
 
     Returns
@@ -104,46 +267,25 @@ def reduce_flatfield(input_table, **kwargs):
     """
     task = "stis_reduce_flatfield"
     cr_flag_value = 8192
-    root = input_table['root']
-    mode = input_table['mode']
-    target = input_table['target']
-    detector = input_table['detector']
-    path = input_table['path']
-    fname = input_table['filename']
+    root = input_row['root']
+    mode = input_row['mode']
+    target = input_row['target']
+    detector = input_row['detector']
+    path = input_row['path']
+    fname = input_row['filename']
     raw_file = os.path.join(path, fname)
     final_file = raw_file.replace("_raw", "_{}_{}_2d".format(target, mode))
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
     exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get("verbose", False)
 
-    issues = {}
-    param_file = get_data_file("abscal.stis", os.path.basename(__file__))
-    if param_file is not None:
-        with open(param_file, 'r') as inf:
-            issues = yaml.safe_load(inf)
-
-    # stistools.basic2d.basic2d(input, 
-    #                           output='', 
-    #                           outblev='', 
-    #                           dqicorr='perform', 
-    #                           atodcorr='omit', 
-    #                           blevcorr='perform', 
-    #                           doppcorr='perform', 
-    #                           lorscorr='perform', 
-    #                           glincorr='perform', 
-    #                           lflgcorr='perform', 
-    #                           biascorr='perform', 
-    #                           darkcorr='perform', 
-    #                           flatcorr='perform', 
-    #                           shadcorr='omit', 
-    #                           photcorr='perform', 
-    #                           statflag=True, 
-    #                           darkscale='', 
-    #                           verbose=False, 
-    #                           timestamps=False, 
-    #                           trailer='', 
-    #                           print_version=False, 
-    #                           print_revision=False)
+    settings = {}
+    setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
+    if setting_file is not None and os.path.isfile(setting_file):
+        with open(setting_file, 'r') as inf:
+            settings = yaml.safe_load(inf)
+    
+    # Do we want to make basic2d interactive? My thought is currently "no"
 
     if verbose:
         print("{}: starting".format(preamble))
@@ -151,140 +293,58 @@ def reduce_flatfield(input_table, **kwargs):
     if "MAMA" in detector:
         # UV reduction. No cosmic rays issues. Just reduce
         if verbose:
-            print("{}: UV reduction".format(preamble))
+            print("{}: MAMA reduction".format(preamble))
         basic2d.basic2d(raw_file, output=final_file, verbose=verbose)
     else:
         if verbose:
             print("{}: CCD reduction: first pass".format(preamble))
-
-        initial_mulnoise, mulnoise = initialize_value("mulnoise", issues, input_table, 0., verbose=verbose)
-        _, skysub = initialize_value("skysub", issues, input_table, "", verbose=verbose)
-        _, wave = initialize_value("wavecal", issues, input_table, "file", verbose=verbose)
         
-        if wave != "file":
-            # We have an overridden wavecal value. Put it in the file.
-            with fits.open(raw_file, mode="update") as raw:
-                raw[0].header['WAVECAL'] = wave
-        
+        # Do the 2D reduction
         interim_file = os.path.join(path, root+"_interim.fits")
         if os.path.isfile(interim_file):
             os.remove(interim_file)
         basic2d.basic2d(raw_file, output=interim_file, verbose=verbose)
-        with fits.open(interim_file) as interim_fits:
-            initial_dat = interim_fits[1].data
         
-        crj_file = os.path.join(path, root+"_interim_crj.fits")
-        crj_params = {"scalense": "{}".format(mulnoise*100), 
-                      "initgues": "",
-                      "skysub": skysub,
-                      "crsigmas": "8,6,4",
-                      "crradius": 0.,
-                      "crthresh": 0.5,
-                      "crmask": ""}
-        crj_types = defaultdict(lambda: str)
-        crj_types["crradius"] = float
-        crj_types["crthresh"] = float
-        initial_crj_params = deepcopy(crj_params)
+        # Set up and run the cosmic ray rejection task
+        figure_windows = []
+        standard_kwargs = {"do_log": True, "draw_toolbar": True}
+        figure_windows.append({"title": "{}: Before Cosmic Ray Removal".format(exp_info),
+                               "static": True,
+                               "data_file": interim_file,
+                               "kwargs": standard_kwargs})
+        figure_windows.append({"title": "{}: After Cosmic Ray Removal".format(exp_info),
+                               "data_file": "working",
+                               "kwargs": standard_kwargs})
+        x1d_params = setup_params("x1d", "stis", settings, input_row, verbose)
+        cr_kwargs = {"draw_toolbar": True, "extrsize": x1d_params['extrsize'], "trace_file": "working"}
+        figure_windows.append({"title": "{}: Cosmic Ray Flags".format(exp_info),
+                               "window_class": CosmicRayWindow,
+                               "data_file": interim_file,
+                               "kwargs": cr_kwargs})
 
-        pre_window = make_figure_window("{}: Before Cosmic Ray Removal".format(exp_info))
-        pre_fig = make_img_fig(np.log10(np.where(initial_dat>=0.1, initial_dat, 0.1)))
-        draw_figure(pre_window, pre_fig)
-
-        post_window = make_figure_window("{}: After Cosmic Ray Removal".format(exp_info))
-        flag_window = make_figure_window("{}: Cosmic Ray Flags".format(exp_info))
-
-        # Create Parameter Window
-        cr_buttons = [sg.Button('Flag More CRs'), sg.Push(), sg.Button('Flag Fewer CRs')]
-        param_window = make_params_window(exp_info, "ocrreject", crj_params, [cr_buttons])
-                
-        changed = True
-        while True:
-            if changed:
-                # If a value was changed, re-do the cosmic ray rejection.
-                if os.path.isfile(crj_file):
-                    os.remove(crj_file)
-                ocrreject.ocrreject(interim_file, crj_file, verbose=verbose, **crj_params)
-                with fits.open(crj_file) as cosmic_ray_file:
-                    crj_dat = cosmic_ray_file['SCI'].data
-                    cr_flag_dat = cosmic_ray_file['DQ'].data & cr_flag_value
-                
-                # Create the new figures
-                post_fig = make_img_fig(np.log10(np.where(crj_dat>=0.1, crj_dat, 0.1)))
-                draw_figure(post_window, post_fig)
-                flag_fig = make_img_fig(cr_flag_dat)
-                draw_figure(flag_window, flag_fig)
-                changed = False
-            window, event, values = sg.read_all_windows()
-            if window is None and event != sg.TIMEOUT_EVENT:
-                print('exiting because no windows are left')
-                break
-            elif event == sg.WIN_CLOSED or event == 'Exit':
-                # Closing the parameter window is the equivalent of "Accept"
-                if window == param_window:
-                    break
-                window.close()
-            elif event == 'Accept':
-                break
-            elif event == "Reset":
-                changed = True
-                crj_params = deepcopy(initial_crj_params)
-            elif event == "Re-plot":
-                for item in crj_params:
-                    if crj_params[item] != crj_types[item](values[item]):
-                        changed = True
-                    crj_params[item] = crj_types[item](values[item])
-            elif event == "Flag More CRs":
-                crj_params["scalense"] -= 1.
-                changed = True
-            elif event == "Flag Fewer CRs":
-                crj_params["scalense"] += 1.
-                changed = True
-            else:
-                print("{}: Got event {} for window {} with values {}".format(preamble, event, window, values))
-        pre_window.close()
-        post_window.close()
-        flag_window.close()
-        param_window.close()
-
-        if changed:
-            # At least one CRJ parameter was changed without re-running ocrreject
-            ocrreject.ocrreject(interim_file, final_file, verbose=verbose, **crj_params)            
-        else:
-            shutil.copy(crj_file, final_file)
-        
-        if verbose:
-            print("{}: Finished Cosmic Ray Iteration".format(preamble))
-        
-        if os.path.isfile(interim_file):
-            os.remove(interim_file)
-        if os.path.isfile(crj_file):
-            os.remove(crj_file)
-        
-        for item in crj_params:
-            if item == "scalense":
-                initial_mulnoise = float(initial_crj_params["scalense"])/100.
-                mulnoise = float(crj_params["scalense"])/100.
-                handle_parameter("mulnoise", initial_mulnoise, mulnoise, param_file, 
-                                 input_table)
-            else:
-                handle_parameter(item, initial_crj_params[item], crj_params[item], 
-                                 param_file, input_table)
-
+        try:
+            run_task("stis", "ocrreject", setting_file, input_row, ocrreject.ocrreject, 
+                     interim_file, final_file, verbose=verbose, figure_windows=figure_windows, 
+                     task_window_class=CosmicRayTaskWindow, output_is_param=False)
+        except Exception as e:
+            print("{}: ERROR: {}".format(preamble, e))
+            return None
     # Finished 2d extraction preparation
+
     if verbose:
         print("{}: finished".format(preamble))
     
     return os.path.basename(final_file)
 
 
-def reduce_extract(input_table, **kwargs):
+def reduce_extract(input_row, **kwargs):
     """
     Perform the calstis "x1d" spectral extraction, including all custom parameters 
     derived from data (or chosen by the user).
 
     Parameters
     ----------
-    input_table : abscal.stis.stis_data_table.STISDataTable
+    input_row : abscal.stis.stis_data_table.STISDataTable
         Single-row input
 
     Returns
@@ -293,78 +353,30 @@ def reduce_extract(input_table, **kwargs):
         Flatfielded science image
     """
     task = "stis_reduce_extract"
-    root = input_table['root']
-    mode = input_table['mode']
-    target = input_table['target']
-    detector = input_table['detector']
-    path = input_table['path']
-    fname = input_table['filename']
-    flt_file = os.path.join(path, input_table['flatfielded'])
+    root = input_row['root']
+    mode = input_row['mode']
+    target = input_row['target']
+    detector = input_row['detector']
+    path = input_row['path']
+    fname = input_row['filename']
+    flt_file = os.path.join(path, input_row['flatfielded'])
     final_file = os.path.join(path, root+"_{}_{}_x1d.fits".format(target, mode))    
     exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get('verbose', False)
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
     
-    issues = {}
-    exposure_parameter_file = get_data_file("abscal.stis", os.path.basename(__file__))
-    if exposure_parameter_file is not None:
-        with open(exposure_parameter_file, 'r') as inf:
-            issues = yaml.safe_load(inf)
+    settings = {}
+    setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
+    if setting_file is not None and os.path.isfile(setting_file):
+        with open(setting_file, 'r') as inf:
+            settings = yaml.safe_load(inf)
 
     # Vignetting info
-    dist1 = "{}".format(100 + abs(float(input_table['raw_postarg']))/0.05)
+    dist1 = "{}".format(100 + abs(float(input_row['raw_postarg']))/0.05)
 
     if verbose:
         print("{}: starting".format(preamble))
-    
-    x1d_params = {"output": final_file, 
-                  "backcorr": 'perform', 
-                  "ctecorr": 'perform', 
-                  "dispcorr": 'perform', 
-                  "helcorr": 'perform', 
-                  "fluxcorr": 'perform', 
-                  "sporder": None, 
-                  "a2center": None, 
-                  "maxsrch": None, 
-                  "globalx": False,  # Whether to use global cross-correlation offset for all orders
-                  "extrsize": None, 
-                  "bk1size": None, 
-                  "bk2size": None, 
-                  "bk1offst": None, 
-                  "bk2offst": None, 
-                  "bktilt": None, 
-                  "backord": None, 
-                  "bksmode": 'median', 
-                  "bksorder": 3, 
-                  "blazeshift": None, 
-                  "algorithm": 'unweighted', 
-                  "xoffset": None, 
-                  "verbose": verbose}
-    x1d_types = {'sporder': int,
-                 'a2center': float,
-                 'maxsrch': float,
-                 'extrsize': float,
-                 'bk1size': float,
-                 'bk2size': float,
-                 'bk1offset': float,
-                 'bk2offset': float,
-                 'bktilt': float,
-                 'backord': int,
-                 'bksorder': int,
-                 'blazeshift': float,
-                 'xoffset': float}
-    
-    for param in x1d_params:
-        # Find any parameter values
-        found, value = get_value(param, issues, input_table, default=x1d_params[param], 
-                                 verbose=verbose)
-        if found:
-            x1d_params[param] = value
-    
-    initial_params = deepcopy(x1d_params)
-    
-    stis_extract.x1d(flt_file, **x1d_params)
-    
+
     # For plotting what's going on in the 2D file:
     #   - "backcorr":   f[0].header["BACKCORR"]
     #   - "ctecorr":    f[0].header["CTECORR"]
@@ -396,115 +408,29 @@ def reduce_extract(input_table, **kwargs):
     #   - "blazeshift": echelle blazeshift, based on SHIFTA1, SHIFTA2, and MJD of exposure
     #   - "algorithm":  as "bktilt" but XTRACALG
     #   - "xoffset":    f[0].header["SHIFTA1"]
+
+    figure_windows = []
+    extr_kwargs = {"extraction_file": "working", "do_log": True, "draw_toolbar": True}
+    figure_windows.append({"title": "{}: Extraction Region".format(exp_info),
+                           "window_class": ExtractionInfoWindow,
+                           "data_file": flt_file,
+                           "kwargs": extr_kwargs})
+    spec_kwargs = {"draw_toolbar": True, "plot_x": "wave"}
+    figure_windows.append({"title": "{}: Extracted".format(exp_info),
+                           "window_class": SpectrumWindow,
+                           "data_file": "working",
+                           "kwargs": spec_kwargs})
     
-    if os.path.isfile(final_file):
-        with fits.open(flt_file) as fltf, fits.open(final_file) as x1df:
-            x_arr = np.arange(1024, dtype=np.int32)
-            spec_loc = x1df[1].data['EXTRLOCY'][0]
-            spec_low = spec_loc - x1df[1].data["EXTRSIZE"][0]//2
-            spec_high = spec_loc + x1df[1].data["EXTRSIZE"][0]//2
-        
-            b1_loc = spec_loc + x1df[1].data["BK1OFFST"][0]
-            b1_low = b1_loc - x1df[1].data["BK1SIZE"][0]//2
-            b1_high = b1_loc + x1df[1].data["BK1SIZE"][0]//2
-        
-            b2_loc = spec_loc + x1df[1].data["BK2OFFST"][0]
-            b2_low = b2_loc - x1df[1].data["BK2SIZE"][0]//2
-            b2_high = b2_loc + x1df[1].data["BK2SIZE"][0]//2
-            
-            ext_data = fltf[1].data
+    try:
+        run_task("stis", "x1d", setting_file, input_row, stis_extract.x1d, flt_file,
+                 final_file, verbose=verbose, figure_windows=figure_windows, 
+                 output_is_param=True)
+    except Exception as e:
+        print("{}: ERROR: {}".format(preamble, e))
+        return None
 
-        extr_window = make_figure_window("{}: Extraction Region".format(exp_info))
-        ext_fig = make_img_fig(np.log10(np.where(ext_data>=0.1,ext_data,0.1)))
-        ax = ext_fig.axes[0]
-        ax.plot(x_arr, spec_low, color='white', label='Extraction Region')
-        ax.plot(x_arr, spec_high, color='white')
-        ax.plot(x_arr, b1_low, color='red', label='Background 1 Region')
-        ax.plot(x_arr, b1_high, color='red')
-        ax.plot(x_arr, b2_low, color='blue', label='Background 2 Region')
-        ax.plot(x_arr, b2_high, color='blue')
-        ax.legend()
-        draw_figure(extr_window, ext_fig)
-        
-        spec_window, spec_fig, lines = make_spectrum_window("{}: Extracted".format(exp_info),
-                                                            final_file)
-        draw_figure(spec_window, spec_fig)
-
-        # Create Parameter Window
-        param_window = make_params_window(exp_info, "x1d", x1d_params)
-        
-        changed = False
-        while True:
-            if changed:
-                # If a value was changed, re-do the cosmic ray rejection.
-                if os.path.isfile(final_file):
-                    os.remove(final_file)
-                stis_extract.x1d(flt_file, **x1d_params)
-                with fits.open(final_file) as x1df:
-                    x_arr = np.arange(1024, dtype=np.int32)
-                    spec_loc = x1df[1].data['EXTRLOCY'][0]
-                    spec_low = spec_loc - x1df[1].data["EXTRSIZE"][0]//2
-                    spec_high = spec_loc + x1df[1].data["EXTRSIZE"][0]//2
-        
-                    b1_loc = spec_loc + x1df[1].data["BK1OFFST"][0]
-                    b1_low = b1_loc - x1df[1].data["BK1SIZE"][0]//2
-                    b1_high = b1_loc + x1df[1].data["BK1SIZE"][0]//2
-        
-                    b2_loc = spec_loc + x1df[1].data["BK2OFFST"][0]
-                    b2_low = b2_loc - x1df[1].data["BK2SIZE"][0]//2
-                    b2_high = b2_loc + x1df[1].data["BK2SIZE"][0]//2
-                
-                # Create the new figures
-                ext_fig = make_img_fig(np.log10(np.where(ext_data>=0.1,ext_data,0.1)))
-                ax = ext_fig.axes[0]
-                ax.plot(x_arr, spec_low, color='white', label='Extraction Region')
-                ax.plot(x_arr, spec_high, color='white')
-                ax.plot(x_arr, b1_low, color='red', label='Background 1 Region')
-                ax.plot(x_arr, b1_high, color='red')
-                ax.plot(x_arr, b2_low, color='blue', label='Background 2 Region')
-                ax.plot(x_arr, b2_high, color='blue')
-                ax.legend()
-                draw_figure(extr_window, ext_fig)
-                
-                for line in lines:
-                    lines[line].set_visible(spec_window[line].get())
-                # Toggle line visibility on the extracted figure
-                draw_figure(spec_window, spec_fig)
-                changed = False
-            window, event, values = sg.read_all_windows()
-            if window is None and event != sg.TIMEOUT_EVENT:
-                print('exiting because no windows are left')
-                break
-            elif event == sg.WIN_CLOSED or event == 'Exit':
-                # Closing the parameter window is the equivalent of "Accept"
-                if window == param_window:
-                    break
-                window.close()
-            elif event == 'Accept':
-                break
-            elif event == "Reset":
-                changed = True
-                x1d_params = deepcopy(initial_x1d_params)
-            elif event == "Re-plot":
-                for item in x1d_params:
-                    if x1d_params[item] != x1d_types[item](values[item]):
-                        if not (x1d_params[item] is None and values[item] == 'None'):
-                            changed = True
-                    if values[item] == 'None':
-                        x1d_params[item] = None
-                    else:
-                        x1d_params[item] = x1d_types[item](values[item])
-            elif event in lines.keys():
-                lines[event].set_visible(not lines[event].get_visible())
-                spec_fig.canvas.draw()
-                changed = True
-            else:
-                print("{}: Got event {} for window {} with values {}".format(preamble, event, window, values))
-        extr_window.close()
-        spec_window.close()
-        param_window.close()
-    else:
-        print("{}: ERROR: Spectral extraction failed.")
+    if verbose:
+        print("{}: finished".format(preamble))
 
     return os.path.basename(final_file)
 
@@ -551,11 +477,11 @@ def reduce(input_table, **kwargs):
     if verbose:
         print("{}: Starting STIS data reduction for spectroscopic data.".format(task))
 
-    issues = {}
-    exposure_parameter_file = get_data_file("abscal.stis", os.path.basename(__file__))
-    if exposure_parameter_file is not None:
-        with open(exposure_parameter_file, 'r') as inf:
-            issues = yaml.safe_load(inf)
+    settings = {}
+    setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
+    if setting_file is not None:
+        with open(setting_file, 'r') as inf:
+            settings = yaml.safe_load(inf)
     
     if update_refs:
         # Make sure the files are set to use the appropriate CRDS references, and that the
@@ -618,12 +544,17 @@ def reduce(input_table, **kwargs):
             if verbose:
                 print("{}: Flatfielding {} ({})".format(task, root, row['mode']))
             reduced_2d = reduce_flatfield(row, **kwargs)
-            row['flatfielded'] = reduced_2d
+            if reduced_2d is not None:
+                row['flatfielded'] = reduced_2d
             
-            if verbose:
-                print("{}: Extracting {} ({})".format(task, root, row['mode']))
-            reduced_extracted = reduce_extract(row, **kwargs)
-            row['extracted'] = reduced_extracted
+                if verbose:
+                    print("{}: Extracting {} ({})".format(task, root, row['mode']))
+                reduced_extracted = reduce_extract(row, **kwargs)
+                if reduced_extracted is not None:
+                    row['extracted'] = reduced_extracted
+            else:
+                if verbose:
+                    print("{}: Flatfielding failed. Skipping extraction.".format(task))
             
             if verbose:
                 print("{}: Finished {}".format(task, root))

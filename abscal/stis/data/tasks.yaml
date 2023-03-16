@@ -1,0 +1,81 @@
+# Parameter values and settings for the STIS reduction tasks
+#
+# Parameters should have two keys:
+#   - type: string/float/bool/int/etc.
+#   - value: initialization value
+
+ocrreject:
+    scalense:
+        type: string
+        value: "0."
+    initgues:
+        type: string
+        value: ""
+    skysub:
+        type: string
+        value: ""
+    crsigmas:
+        type: string
+        value: ""
+    crradius:
+        type: float_or_none
+        value: 0.
+    crthresh:
+        type: float_or_none
+        value: 0.5
+    badinpdq: 
+        type: int_or_none
+        value: "None"
+    crmask:
+        type: str
+        value: "yes"
+
+x1d:
+    sporder:
+        type: int_or_none
+        value: "None"
+    a2center:
+        type: float_or_none
+        value: "None"
+    maxsrch:
+        type: float_or_none
+        value: "None"
+    globalx:
+        type: bool
+        value: False
+    extrsize:
+        type: float_or_none
+        value: "None"
+    bk1size:
+        type: float_or_none
+        value: "None"
+    bk2size:
+        type: float_or_none
+        value: "None"
+    bk1offst:
+        type: float_or_none
+        value: "None"
+    bk2offst:
+        type: float_or_none
+        value: "None"
+    bktilt:
+        type: float_or_none
+        value: "None"
+    backord:
+        type: int_or_none
+        value: "None"
+    bksmode:
+        type: string
+        value: "median"
+    bksorder:
+        type: int
+        value: 3
+    blazeshift:
+        type: float_or_none
+        value: "None"
+    algorithm:
+        type: string
+        value: "unweighted"
+    xoffset:
+        type: float_or_none
+        value: "None"

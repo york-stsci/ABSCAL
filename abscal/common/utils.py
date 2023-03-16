@@ -21,6 +21,7 @@ import numpy as np
 from astropy.time import Time
 from copy import deepcopy
 from datetime import datetime
+from distutils.util import strtobool
 from ruamel.yaml import YAML
 from simpleeval import simple_eval
 
@@ -414,9 +415,8 @@ def initialize_value(name, inputs, row, default, verbose):
     initial_value = default
     found, value = get_value(name, inputs, row, default=default, verbose=verbose)
     if found:
-        initial_value = value
-    value = initial_value
-    return initial_value, value
+        return value
+    return initial_value
 
 
 def get_value(name, inputs, row, default=None, pre="", verbose=False):
@@ -480,10 +480,48 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                     m, v = find_value(name, item, row, default=value, pre="\t{}".format(pre), verbose=verbose)
                     if m:
                         return m, v
+            elif "default" in inputs:
+                source = inputs.get("source", "[NONE PROVIDED]")
+                reason = inputs.get("reason", "[NONE PROVIDED]")
+                if verbose:
+                    msg = "{}: Using default {} from {} because {}"
+                    print(msg.format(pre, inputs["default"], source, reason))
+                return True, inputs["default"]
             else:
                 if verbose:
                     msg = "{}: ERROR: Invalid node {}"
                     print(msg.format(pre, inputs))
+    elif 'parameters' in inputs:
+        # Trunk node
+        if verbose:
+            print("{}Parameter Trunk".format(pre))
+        if 'value' in inputs:
+            if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
+                if verbose:
+                    print("{}Matched {} ({})".format(pre, name, row[name]))
+                match_found = True
+        elif 'values' in inputs:
+            if (name in row.columns) and (row[name] in inputs['values']):
+                if verbose:
+                    print("{}Matched {} ({})".format(pre, name, row[name]))
+                match_found = True
+        else:
+            match_found = True
+        if match_found:
+            if 'default' in inputs:
+                value = inputs['default']
+                if verbose:
+                    print("{}: Setting value to default {}".format(pre, value))
+            ordering = inputs['eval_order']
+            inputs = inputs['parameters']
+            for key in ordering:
+                if verbose:
+                    print("{}Checking {}".format(pre, key))
+                local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                if local_match_found:
+                    match_found = True
+                    value = value_found
+                    break
     elif 'value' in inputs:
         # Leaf node, single-expression
         if verbose:
@@ -526,6 +564,14 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                 if verbose:
                     msg = "{}Setting {} to {} based on {} because {}"
                     print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+    elif "default" in inputs:
+        value = default
+        match_found = True
+        source = inputs.get("source", "[NONE PROVIDED]")
+        reason = inputs.get("reason", "[NONE PROVIDED]")
+        if verbose:
+            msg = "{}: Using default {} from {} because {}"
+            print(msg.format(pre, value, source, reason))
     else:
         if verbose:
             msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
@@ -983,32 +1029,23 @@ def linecen(wave, spec, cont):
     badflag : bool
         False for good data, true for bad data
     """
-#     print("\tlinecen called with:")
-#     print("\t\twave={}".format(wave))
-#     print("\t\tspec={}".format(spec))
-#     print("\t\tcont={}".format(cont))
     badflag = False
     profile = spec - cont
     clip = (profile - np.max(profile)*0.5)
-#     print("\tClip starts at {}".format(clip))
     n_points = len(clip)
     midpoint = (n_points-1)//2
-#     print("\tProfile has {} points, midpoint at {}.".format(n_points, midpoint))
     low_bad = 0
     while low_bad < len(clip) and clip[low_bad] < 0:
         low_bad += 1
     if low_bad > 0:
         clip[:low_bad+1] = 0.
-#         print("\t\tClipping points [:{}]".format(low_bad+1))
     high_bad = len(clip) - 1
     while high_bad >= 0 and clip[high_bad] < 0:
         high_bad -= 1
     if high_bad < len(clip) - 1:
         clip[high_bad:] = 0.
-#         print("\t\tClipping points [{}:]".format(high_bad))
     clip = np.where(clip>0., clip, 0.)
     good = np.where(clip > 0.)
-#     print("\tClip is now {}, with good points {}".format(clip, good))
     if len(good) > 0:
         n_good = len(good[0])
     if n_good <= 1:
@@ -1016,3 +1053,163 @@ def linecen(wave, spec, cont):
         return wave[midpoint], "bad"
     centroid = np.sum(wave*clip)/np.sum(clip)
     return centroid, "good"
+
+
+def return_type(var_type, var_value):
+    """
+    Handles updating a variable given a type string. Currently this depends on the type
+    being one of "float", "int", "bool", or "string".
+    
+    Parameters
+    ----------
+    var_type : str
+        Variable type indicator
+    var_value : str
+        Variable value, formatted as a string
+    
+    Returns
+    -------
+    var_value : object
+        The variable value, in the specified type
+    """
+    if var_type == "float":
+        return float(var_value)
+    elif var_type == "int":
+        return int(var_value)
+    elif var_type == "bool":
+        if isinstance(var_value, str):
+            return strtobool(var_value)
+        elif not isinstance(var_value, bool):
+            return bool(var_value)
+    return var_value
+
+
+def check_params(task, module, params, values, verbose):
+    """
+    Given a task and module, check the current values (in values) against the existing
+    values (in params), update params as needed, and return a value indicating whether 
+    any have changed.
+    
+    Parameters
+    ----------
+    task : str
+        Task name
+    module : str
+        Abscal module
+    params : dict
+        Parameter values at the start of the iteration
+    values : dict
+        Current parameter values
+    verbose : bool
+        Whether to print verbose output
+    
+    Returns
+    -------
+    changed : bool
+        Whether any settings where changed
+    """
+    param_types = get_param_types(task, module, verbose)
+
+    changed = False
+    for item in params:
+        item_type = param_types[item].split("_")[0]
+        if "none" in param_types[item]:
+            gen_type = param_types[item].split("_")[0]
+            if params[item] is None and values[item] == "None":
+                continue
+            elif params[item] is None:
+                changed = True
+                params[item] = return_type(item_type, values[item])
+            elif values[item] == 'None':
+                changed = True
+                params[item] = None
+            else:
+                current_value = return_type(item_type, values[item])
+                if params[item] != current_value:
+                    changed = True
+                    params[item] = current_value
+        else:
+            current_value = return_type(item_type, values[item])
+            if params[item] != current_value:
+                changed = True
+                params[item] = current_value
+        
+    return changed
+
+
+def get_param_types(task, module, verbose):
+    """
+    Given a task name, create a dictionary that has type info for every parameter in that
+    task.
+    
+    Parameters
+    ----------
+    task : str
+        Task name
+    module : str
+        Abscal module
+    verbose : bool
+        Whether to print verbose output
+    
+    Returns
+    -------
+    types : dict
+        The task types dictionary
+    """
+    param_types = {}
+    task_params = {}
+    task_file = get_data_file(module, "tasks.yaml")
+    if task_file is not None:
+        with open(task_file) as in_file:
+            task_dict = yaml.safe_load(in_file)
+        if task in task_dict:
+            task_params = task_dict[task]
+    
+    for item in task_params:
+        param_types[item] = task_params[item]["type"]
+
+    return param_types
+
+
+def setup_params(task, module, metadata, row, verbose):
+    """
+    Given a task name, create a dictionary that uses the current exposure of interest to 
+    populate a dictionary of parameter values, then return that dictionary
+    
+    Parameters
+    ----------
+    task : str
+        Task name
+    module : str
+        Abscal module
+    metadata : dict-like
+        Data file to search for exposure-specific settings
+    row : ABSCAL.ExposureDataTable row
+        Row of information on the current exposure
+    verbose : bool
+        Whether to print verbose output
+    
+    Returns
+    -------
+    params : dict
+        The set parameter dictionary
+    """
+    params = {}
+    task_params = {}
+    param_types = get_param_types(task, module, verbose)
+    task_file = get_data_file(module, "tasks.yaml")
+    if task_file is not None:
+        with open(task_file) as in_file:
+            task_dict = yaml.safe_load(in_file)
+        if task in task_dict:
+            task_params = task_dict[task]
+    
+    for item in task_params:
+        default = task_params[item]["value"]
+        if "none" in task_params[item]["type"] and default == "None":
+            default = None
+        params[item] = initialize_value(item, metadata, row, default, verbose)
+        if "string" in param_types[item]:
+            params[item] = "{}".format(params[item])
+
+    return params

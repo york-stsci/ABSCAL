@@ -200,5 +200,10 @@ delete:
       reason: "pstrtime MAMA turn-on yr.ddd"
       column: date
       key: "< '1997-05-18'"
+    - type: node
+      source: BY
+      reason: "There's no spectrum there"
+      column: root
+      key: "== 'oehk04010'"
 
 edit: []
