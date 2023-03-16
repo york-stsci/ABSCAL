@@ -71,10 +71,10 @@ def main(**kwargs):
             sys.stdout.write(msg.format(conf['latest_known_tag'], stenv_tag))
             
             ryaml = YAML()
-            with open("env_config.yaml") as inf:
+            with open("env_config.yml") as inf:
                 new_config = ryaml.load(inf)
             new_config["latest_known_tag"] = stenv_tag
-            with open("env_config.yaml", mode="w") as outf:
+            with open("env_config.yml", mode="w") as outf:
                 ryaml.dump(new_config, outf)
     except Exception as e:
         sys.stderr.write("Retrieval error: {}\n".format(e))
@@ -101,7 +101,7 @@ def main(**kwargs):
     
     sys.stdout.write("Running on a {} {} system.\n".format(stenv_sys, machine))
     
-    stenv_url = "{0}/{1}/stenv-{2}-py{3}-{1}.yml"
+    stenv_url = "{0}/{1}/stenv-{2}-py{3}-{1}.yaml"
     stenv_url = stenv_url.format(conf['stenv_url'], stenv_tag, stenv_sys, 
         conf['python_version'])
     
