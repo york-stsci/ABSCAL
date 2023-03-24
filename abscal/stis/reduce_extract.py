@@ -165,8 +165,8 @@ class CosmicRayWindow(TwoColumnWindow):
                                   text_color="red", key="trace", enable_events=True,
                                   background_color="white")
         trace_frame = sg.Frame("Trace:", [[trace_check]], background_color="white",
-                               title_color="black")
-        trace_col = sg.Column([[trace_frame]])
+                               title_color="black", expand_y=True)
+        trace_col = sg.Column([[trace_frame]], expand_y=True)
         return trace_col
     
     def get_trace_data(self):

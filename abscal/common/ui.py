@@ -97,6 +97,7 @@ class ImageWindow(AbscalWindow):
         layout = self.create_layout()
         # Create window and draw figure
         super().__init__(window_title, layout, *args, **kwargs)
+        self.bind('<Configure>', "Event")
         self.draw_figure()
 
     def set_up_config(self, kwargs):
@@ -106,17 +107,18 @@ class ImageWindow(AbscalWindow):
         self.do_log = self.handle_kwarg("do_log", False, kwargs)
         self.handle_kwarg("font", "Helvetica 16", kwargs, remove=False, add=True)
         self.handle_kwarg("finalize", True, kwargs, remove=False, add=True)
+        self.handle_kwarg("resizable", True, kwargs, remove=False, add=True)
         return kwargs
 
     def create_figure(self):
         data = self.get_image_data()
-        figure = matplotlib.figure.Figure(figsize=(11, 11), dpi=100)
-        ax = figure.add_axes((0.04, 0.04, 0.95, 0.95))
+        figure = matplotlib.figure.Figure()
+        ax = figure.add_subplot(1, 1, 1)
         img = ax.imshow(data, origin='lower', cmap='Greys', resample=False)
         return figure
 
     def create_layout(self):
-        layout = [[sg.Canvas(key='canvas')]]
+        layout = [[sg.Canvas(key='canvas', expand_x=True, expand_y=True)]]
         if self.draw_toolbar:
             layout.append([sg.Canvas(key='canvas_controls')])
         if self.add_done:
@@ -173,10 +175,10 @@ class TwoColumnWindow(ImageWindow):
     """
     def create_layout(self):
         ui_column = self.make_ui_column()
-        plot_frame = [[sg.Canvas(key='canvas')]]
+        plot_frame = [[sg.Canvas(key='canvas', expand_x=True, expand_y=True)]]
         if self.draw_toolbar:
-            plot_frame.append([sg.Canvas(key='canvas_controls')])
-        plot_col = sg.Column([[sg.Frame('Plot:', plot_frame)]])
+            plot_frame.append([sg.Canvas(key='canvas_controls', expand_y=True)])
+        plot_col = sg.Column([[sg.Frame('Plot:', plot_frame, expand_x=True, expand_y=True)]], expand_x=True, expand_y=True)
         layout = [[ui_column, plot_col]]
         if self.add_done:
             layout.append([sg.Button('Done')])
@@ -208,7 +210,7 @@ class SpectrumWindow(TwoColumnWindow):
                                    enable_events=True, background_color='white')
             check_list.append([checkbox])
         check_col = sg.Column([[sg.Frame('Lines:', check_list, background_color='white', 
-                                         title_color='black')]])
+                                         title_color='black', expand_y=True)]], expand_y=True)
         return check_col
     
     def get_spec_data(self):
@@ -226,7 +228,7 @@ class SpectrumWindow(TwoColumnWindow):
     def create_figure(self):
         spec_data = self.get_spec_data()
         self.spec_lines = {}
-        figure = matplotlib.figure.Figure(figsize=(12,8), dpi=100)
+        figure = matplotlib.figure.Figure()
         ax = figure.add_subplot(1, 1, 1)
         for item in spec_data:
             if item != "x_axis":
