@@ -150,8 +150,10 @@ def main(**kwargs):
             if isinstance(item, dict) and "pip" in item:
                 for package in item["pip"]:
                     if package == "-e .":
+                        sys.stdout.write("Installing local module with pip.\n")
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', os.getcwd()])
                     else:
+                        sys.stdout.write("Installing {} with pip.\n".format(package))
                         subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
 # This is commented out because currently the constructed STENV is at least sometimes
 # inconsistent, and so I'm installing pip things manually.
