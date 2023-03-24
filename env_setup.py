@@ -22,13 +22,22 @@ This file is intended to be run from the command line::
 import json
 import os
 import platform
-from ruamel.yaml import YAML
 import shutil
 import subprocess
 import sys
 from urllib.request import urlopen
-import yaml
 
+try:
+    import yaml
+except Exception as e:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyyaml'])
+    import yaml
+
+try:
+    from ruamel.yaml import YAML
+except Exception as e:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'ruamel.yaml'])
+    from ruamel.yaml import YAML
 
 def set_var(name, value, setup_file, remove_file):
     """
@@ -70,12 +79,13 @@ def main(**kwargs):
             msg = "Updating latest tag from {} to {}\n"
             sys.stdout.write(msg.format(conf['latest_known_tag'], stenv_tag))
             
-            ryaml = YAML()
-            with open("env_config.yml") as inf:
-                new_config = ryaml.load(inf)
-            new_config["latest_known_tag"] = stenv_tag
-            with open("env_config.yml", mode="w") as outf:
-                ryaml.dump(new_config, outf)
+            if have_ryaml:
+                ryaml = YAML()
+                with open("env_config.yml") as inf:
+                    new_config = ryaml.load(inf)
+                new_config["latest_known_tag"] = stenv_tag
+                with open("env_config.yml", mode="w") as outf:
+                    ryaml.dump(new_config, outf)
     except Exception as e:
         sys.stderr.write("Retrieval error: {}\n".format(e))
         stenv_tag = conf["latest_known_tag"]
@@ -134,10 +144,21 @@ def main(**kwargs):
     subprocess.run([conda_cmd, "create", "-n", conf['name'], "--file", stenv_url], 
                    env=os.environ.copy())
     if "local_env" in conf:
-        msg = "Updating {} environment from local file {}.\n"
-        sys.stdout.write(msg.format(conf['name'], conf['local_env']))
-        subprocess.run([conda_cmd, "update", "--name", conf['name'], "--file", 
-            conf['local_env']], env=os.environ.copy())
+        with open(conf['local_env']) as inf:
+            additional_config = yaml.safe_load(inf)
+        for item in additional_config.get("dependencies", []):
+            if isinstance(item, dict) and "pip" in item:
+                for package in item["pip"]:
+                    if package == "-e .":
+                        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', os.getcwd()])
+                    else:
+                        subprocess.check_call([sys.executable, '-m', 'pip', 'install', package])
+# This is commented out because currently the constructed STENV is at least sometimes
+# inconsistent, and so I'm installing pip things manually.
+#         msg = "Updating {} environment from local file {}.\n"
+#         sys.stdout.write(msg.format(conf['name'], conf['local_env']))
+#         subprocess.run([conda_cmd, "update", "--name", conf['name'], "--file", 
+#             conf['local_env']], env=os.environ.copy())
     
     if 'env' in config:
         activate_path = os.path.join(env_path, "etc", "conda", "activate.d")

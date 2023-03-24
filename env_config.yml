@@ -30,9 +30,6 @@
 base: 
     name: "abscal"              # the name of the package, and of the environment to create
     package_name: "abscal"      # the name of the python module in the repository
-# *****NOTE*****
-# Dropped in first 2023 tag
-#     stream: "stable"                # one of stable/dev/latest
     python_version: "3.10"          # currently one of 3.8, 3.9, 3.10, or 3.11
     conda_path: "${HOME}/conda"     # if conda is not installed, where to install it.
     local_env: "env_update.yml"     # local environment file to use to update STENV
