@@ -31,7 +31,7 @@ from ruamel.yaml import YAML
 from simpleeval import simple_eval
 
 
-def download_mast_program(proposal_id, download_dir, skip_existing_files=True):
+def download_mast_program(proposal_id, download_dir, exts='all', skip_existing_files=True):
     flux_table = Observations.query_criteria(proposal_id=proposal_id)
     obs_mask = [x[:4] != 'hst_' for x in flux_table['obs_id']]
     obs_filter = [id for id in flux_table['obs_id'] if id[:4] != 'hst_']
@@ -49,10 +49,8 @@ def download_mast_program(proposal_id, download_dir, skip_existing_files=True):
                 i += 1
     data_products = Observations.get_product_list(obs_ids)
     if len(data_products) > 0 and len(obs_filter) > 0:
-        manifest = Observations.download_products(data_products, download_dir=download_dir, extension=["fits"], 
+        manifest = Observations.download_products(data_products, 
+                                                  download_dir=download_dir, 
+                                                  flat=True,
+                                                  extension=["fits"], 
                                                   obs_id=obs_filter)
-
-        for file_name in manifest['Local Path']:
-            base_file = os.path.basename(file_name)
-            print("Copying {}".format(base_file))
-            shutil.copy(os.path.join(download_dir, file_name), os.path.join(download_dir, base_file))
