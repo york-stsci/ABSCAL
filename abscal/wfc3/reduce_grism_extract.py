@@ -123,36 +123,9 @@ from scipy import ndimage
 from scipy.interpolate import interp2d
 
 from abscal.common.args import parse
-from abscal.common.utils import get_data_file, get_defaults, set_params, set_image
-from abscal.common.exposure_data_table import AbscalDataTable
+from abscal.common.utils import get_data_file, get_defaults, set_param, set_params, set_image
 from abscal.wfc3.util_filter_locate_image import locate_image
-
-
-def make_monotonic(wave, indx):
-    """
-    Make an array monotonically increasing.
-    
-    Take a supplied (wavelength) array, along with a list of index values that were just 
-    replaced from another array, and ensure that the full array is monotonically 
-    increasing.
-
-    Parameters
-    ----------
-    wave : np.ndarray
-        Array of wavelength values
-    indx : np.ndarray
-        Index of wave entries that were just replaced by a different order.
-    """
-    ibreak = np.max(indx)
-    bad = np.where(wave[ibreak+1:1013] < wave[ibreak])
-    npts = len(bad[0])
-    if npts > 0:
-        print("Non-monotonic: {}".format(bad))
-        delwl = np.where((wave[ibreak+1+npts] - wave[ibreak])>1.,
-                         (wave[ibreak+1+npts] - wave[ibreak]), 1.)
-        delwl /= npts
-        wave[ibreak:ibreak+npts] = wave[ibreak] + delwl*np.arange(1, npts+1)
-    return wave
+from abscal.wfc3.wfc3_data_table import WFC3DataTable
 
 
 def set_hdr(hdr, params):
@@ -272,7 +245,7 @@ def reduce_flatfield(input_table, params):
     with open(cal_data, 'r') as inf:
         cal_files = yaml.safe_load(inf)
     flat_file_name = cal_files["flatfield_cube"][filter]
-    flat_file = get_data_file("abscal.wfc3", flat_file_name)
+    flat_file = get_data_file("abscal.wfc3", flat_file_name, subdir="wfcref")
 
     with fits.open(flat_file) as in_flat:
         # Figure out extension of first coefficient extension of flatfield
@@ -450,8 +423,14 @@ def reduce_wave_axe(row, params):
             indx = np.where(wave < 300)
             if len(indx[0]) > 0:
                 wave[indx] = -(a0 + a1*(indx[0]-xc))
-                wave = make_monotonic(wave, indx)
-            wav1st = wave
+                ibreak = np.max(indx)
+                bad = np.where(wave[ibreak:] < wave[ibreak-1])
+                npts = len(bad[0])
+                if npts > 0:
+                    delwl = (wave[ibreak+npts] - wave[ibreak-1])/(npts+1)
+                    wave[ibreak-1:ibreak+npts] = wave[ibreak-1] + delwl*np.arange(npts)
+
+            wav1st = deepcopy(wave)
 
             # 2nd order
             ord_params = { 'a': 3189.9195, 'b': 0.291324446, 'c': 0.039748254,
@@ -467,8 +446,13 @@ def reduce_wave_axe(row, params):
             if len(indx[0]) > 0:
                 wave[indx] = 2*(a0 + a1*(indx[0]-xc))
                 wav1st[indx] = a0 + a1*(indx[0]-xc)
-                wave = make_monotonic(wave, indx)
-                wav1st = make_monotonic(wav1st, indx)
+                ibreak = np.min(indx)
+                bad = np.where(wave[:ibreak] > wave[ibreak])
+                npts = len(bad[0])
+                if npts > 0:
+                    delwl = (wave[ibreak] - wave[ibreak-npts-1])/(npts+1)
+                    wave[ibreak-npts:ibreak+1] = wave[ibreak-npts] + delwl*np.arange(npts)
+                    wav1st[ibreak-npts:ibreak+1] = wave[ibreak-npts:ibreak+1]/2.
 
             # 3rd order is commented out in IDL code, provided below:
 #             ord_params = { 'a': 2.17651e+03, 'b': 0., 'c': 5.01084e-02,
@@ -497,7 +481,7 @@ def reduce_wave_axe(row, params):
                            'd': -9.175233345e-7, 'e': 2.235506e-7, 'f': -9.25869e-7 }
             a1 = calculate_order(ord_params, xc, yc)
             a0p1, a1p1 = a0, a1
-            wave = a0 + a1*(x - xc)
+            wave = a0 + a1*(x_arr - xc)
 
             #Negative First Order
             ord_params = { 'a': -46.4855, 'b': 0., 'c': -0.8732184,
@@ -506,13 +490,18 @@ def reduce_wave_axe(row, params):
             ord_params = { 'a': 44.972279, 'b': 0., 'c': -0.004813895,
                            'd': 0., 'e': 0., 'f': 2.0768286663e-6 }
             a1 = calculate_order(ord_params, xc, yc)
-            a0p1, a1p1 = a0, a1
+            a0m1, a1m1 = a0, a1
 
             indx = np.where(wave < 300)
             if len(indx[0]) > 0:
                 wave[indx] = -(a0 + a1*(indx[0]-xc))
-                wave = make_monotonic(wave, indx)
-            wav1st = wave
+                ibreak = np.max(indx)
+                bad = np.where(wave[ibreak:] < wave[ibreak-1])
+                npts = len(bad[0])
+                if npts > 0:
+                    delwl = (wave[ibreak+npts] - wave[ibreak-1])/(npts+1)
+                    wave[ibreak-1:ibreak+npts] = wave[ibreak-1] + delwl*np.arange(npts)
+            wav1st = deepcopy(wave)
 
             # 2nd order
             ord_params = { 'a': 4474.5297, 'b': 0.17615670, 'c': 0.046354019,
@@ -527,8 +516,13 @@ def reduce_wave_axe(row, params):
             if len(indx[0]) > 0:
                 wave[indx] = 2*(a0 + a1*(indx[0]-xc))
                 wav1st[indx] = a0 + a1*(indx[0]-xc)
-                wave = make_monotonic(wave, indx)
-                wav1st = make_monotonic(wav1st, indx)
+                ibreak = np.min(indx)
+                bad = np.where(wave[:ibreak] > wave[ibreak])
+                npts = len(bad[0])
+                if npts > 0:
+                    delwl = (wave[ibreak] - wave[ibreak-npts-1])/(npts+1)
+                    wave[ibreak-npts:ibreak+1] = wave[ibreak-npts] + delwl*np.arange(npts)
+                    wav1st[ibreak-npts:ibreak+1] = wave[ibreak-npts:ibreak+1]/2.
 
             # 3rd order is commented out in IDL code, provided below:
 #             ord_params = { 'a': 3.00187e+03, 'b': 1.04205e-01, 'c': -1.18134e-03,
@@ -552,8 +546,8 @@ def reduce_wave_axe(row, params):
             if verbose:
                 for i in range(1, len(wave)):
                     if wave[i] < wave[i-1]:
-                        msg = "{}: Not monotonic at {}: {}-{}"
-                        print(msg.format(preamble, i, wave[i-1], wave[i]))
+                        msg = "{}: Not monotonic at {}: {}, {}, {}, {}"
+                        print(msg.format(preamble, i, wave[i-2], wave[i-1], wave[i], wave[i+1]))
             # For now just die on an exception if not monotonic.
             msg = "Wavelength array {} not monotonic".format(wave)
             raise ValueError(msg)
@@ -571,14 +565,14 @@ def reduce_wave_axe(row, params):
                 print(msg.format(preamble, min(wave), max(wave), xc, yc))
 
     with fits.open(file, mode='update') as f:
-        f[0].header['XC'] = (xcin[0], 'Dir img ref X position used for AXE WLs')
-        f[0].header['YC'] = (ycin[0], 'Dir img ref Y position used for AXE WLs')
-        f[0].header['A0p1ST'] = (a0p1[0], 'Constant Term of the +1st order disp.')
-        f[0].header['A1p1ST'] = (a1p1[0], 'Linear Term of the +1st order disp.')
-        f[0].header['A0m1ST'] = (a0m1[0], 'Constant Term of the -1st order disp.')
-        f[0].header['A1m1ST'] = (a1m1[0], 'Linear Term of the -1st order disp.')
-        f[0].header['A0p2ND'] = (a0p2[0], 'Constant Term of the +2nd order disp.')
-        f[0].header['A1p2ND'] = (a1p2[0], 'Linear Term of the +2nd order disp.')
+        f[0].header['XC'] = (xcin, 'Dir img ref X position used for AXE WLs')
+        f[0].header['YC'] = (ycin, 'Dir img ref Y position used for AXE WLs')
+        f[0].header['A0p1ST'] = (a0p1, 'Constant Term of the +1st order disp.')
+        f[0].header['A1p1ST'] = (a1p1, 'Linear Term of the +1st order disp.')
+        f[0].header['A0m1ST'] = (a0m1, 'Constant Term of the -1st order disp.')
+        f[0].header['A1m1ST'] = (a1m1, 'Linear Term of the -1st order disp.')
+        f[0].header['A0p2ND'] = (a0p2, 'Constant Term of the +2nd order disp.')
+        f[0].header['A1p2ND'] = (a1p2, 'Linear Term of the +2nd order disp.')
 #         f[0].header['A0p3RD'] = (a0p3[0], 'Constant Term of the +3rd order disp.')
 #         f[0].header['A1p3RD'] = (a1p3[0], 'Linear Term of the +3rd order disp.')
 
@@ -676,14 +670,7 @@ def reduce_wave_zord(row, params):
             indx = np.where(wave < -7000)
             if len(indx[0]) > 0:
                 wave[indx] = b + m*(indx[0] - zxpos)
-#                 print("Wave after negative first order")
-#                 print(np.array2string(wave, **np_opt))
-                wave = make_monotonic(wave, indx)
             wav1st = deepcopy(wave)
-#             print("Wave: ", end='')
-#             for i in range(len(wave)):
-#                 print("{:.1f}".format(wave[i]), end=', ')
-#             print("done wave.")
 
             # Second Order
             b_coeff = [213.571, 0.561877, -0.040419]
@@ -695,17 +682,7 @@ def reduce_wave_zord(row, params):
             indx = np.where(wave > 14000)
             if len(indx[0]) > 0:
                 wave[indx] = b + m*(indx[0] - zxpos)
-#                 print("Wave after second order")
-#                 print(np.array2string(wave, **np_opt))
                 wav1st[indx] = (b + m*(indx[0] - zxpos))//2
-                wave = make_monotonic(wave, indx)
-                wav1st = make_monotonic(wav1st, indx)
-#             print("Wave: ", end='')
-#             for i in range(len(wave)):
-#                 print("{:.1f}".format(wave[i]), end=', ')
-#             print("done wave.")
-#             print("Wave after monotonic Correction")
-#             print(np.array2string(wave, **np_opt))
 
             angle = np.radians(0.61)
 
@@ -729,7 +706,6 @@ def reduce_wave_zord(row, params):
             indx = np.where(wave < -8000)
             if len(indx[0]) > 0:
                 wave[indx] = b + m*(indx[0] - zxpos)
-                wave = make_monotonic(wave, indx)
             wav1st = deepcopy(wave)
 
             # Second Order
@@ -743,8 +719,6 @@ def reduce_wave_zord(row, params):
             if len(indx[0]) > 0:
                 wave[indx] = b + m*(indx[0] - zxpos)
                 wav1st[indx] = (b + m*(indx[0] - zxpos))//2
-                wave = make_monotonic(wave, indx)
-                wav1st = make_monotonic(wav1st, indx)
 
             angle = np.radians(0.42)
 
@@ -1405,7 +1379,7 @@ def reduce_stare(row, params, **kwargs):
         with open(cal_data, 'r') as inf:
             cal_files = yaml.safe_load(inf)
         flat_file_name = cal_files["flatfield"][row["filter"]]
-        flat_file = get_data_file("abscal.wfc3", flat_file_name)
+        flat_file = get_data_file("abscal.wfc3", flat_file_name, subdir="wfcref")
         if verbose:
             msg = "{}: wfc_flatscl: Using flatfield {}"
             print(msg.format(preamble, flat_file_name))
@@ -1551,7 +1525,7 @@ def reduce_stare(row, params, **kwargs):
                     xfound[iord] = np.mean(xrang)
 
                     x1, x2 = x1bin[iord], x2bin[iord]
-                    y1 = max(int(round(yapprox[(x1+x2)//2]))-ywidth//2, 0)
+                    y1 = max(int(round(yapprox[(x1+x2)//2]))-params['ywidth']//2, 0)
                     y2 = min((y1 + params['ywidth']-1), (ysize-1))
                     if verbose:
                         msg = "{}: iord={}; x,y search range=({},{}), ({},{})"
@@ -2418,10 +2392,10 @@ def main(**kwargs):
         if hasattr(parsed, key):
             setattr(parsed, key, kwargs[key])
 
-    input_table = AbscalDataTable(table=parsed.table,
-                                  duplicates=parsed.duplicates,
-                                  search_str='',
-                                  search_dirs=parsed.paths)
+    input_table = WFC3DataTable(table=parsed.table,
+                                duplicates=parsed.duplicates,
+                                search_str='',
+                                search_dirs=parsed.paths)
 
     output_table = reduce(input_table, **vars(parsed), **kwargs)
 

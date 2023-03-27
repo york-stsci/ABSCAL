@@ -68,8 +68,8 @@ from abscal.common.args import parse
 from abscal.common.standard_stars import find_star_by_name
 from abscal.common.utils import air2vac, get_data_file, get_defaults, linecen
 from abscal.common.utils import smooth_model, tabinv
-from abscal.common.exposure_data_table import AbscalDataTable
 from abscal.wfc3.reduce_grism_extract import reduce
+from abscal.wfc3.wfc3_data_table import WFC3DataTable
 
 def wlimaz(root, y_arr, wave_arr, directory, verbose):
     """
@@ -194,6 +194,7 @@ def wlmeas(input_table, **kwargs):
         Table of emission line locations
     """
     task = "wfc3: grism: wlmeas"
+    preamble = task
     default_values = get_defaults('abscal.common.args')
     base_defaults = default_values | get_defaults(kwargs.get('module_name', __name__))
     verbose = kwargs.get('verbose', base_defaults['verbose'])
@@ -210,7 +211,7 @@ def wlmeas(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
     in_notebook = kwargs.get('notebook', False)
-
+    
     issues = {}
     exposure_parameter_file = get_data_file("abscal.wfc3", os.path.basename(__file__))
     if exposure_parameter_file is not None:
@@ -250,8 +251,8 @@ def wlmeas(input_table, **kwargs):
     xpx = np.arange(1014, dtype=np.float64)
 
     if verbose:
-        msg = "{}: Starting WFC3 wavelength measurement for GRISM data."
-        print(msg.format(task))
+        msg = "{}: Starting WFC3 wavelength measurement for GRISM data with {} inputs."
+        print(msg.format(task, len(input_table)))
 
     roots = []
     stars = []
@@ -1037,10 +1038,10 @@ def main(do_measure=True, do_make=True, **kwargs):
         if hasattr(parsed, key):
             setattr(parsed, key, kwargs[key])
 
-    input_table = AbscalDataTable(table=parsed.table,
-                                  duplicates='both',
-                                  search_str='',
-                                  search_dirs=parsed.paths)
+    input_table = WFC3DataTable(table=parsed.table,
+                                duplicates='both',
+                                search_str='',
+                                search_dirs=parsed.paths)
 
     measure_fname = parsed.out_file
     if do_measure:

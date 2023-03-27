@@ -90,7 +90,7 @@ def get_base_data_dir():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def get_data_file(module, fname, defaults=False):
+def get_data_file(module, fname, subdir=None):
     """
     Find an internal data file.
     
@@ -105,8 +105,8 @@ def get_data_file(module, fname, defaults=False):
         abscal.wfc3)
     fname : str
         The file name of interest
-    defaults : bool, default False
-        Whether to append a "defaults" directory to the final path
+    subdir : str, default None
+        Subdirectory (within the data directory)
 
     Returns
     -------
@@ -129,8 +129,8 @@ def get_data_file(module, fname, defaults=False):
     module_path = module.replace(".", "/")
 
     data_path = os.path.join(current_loc, module_path, "data")
-    if defaults:
-        data_path = os.path.join(data_path, "defaults")
+    if subdir is not None:
+        data_path = os.path.join(data_path, subdir)
     data_file = os.path.join(data_path, fname)
     
     if os.path.isfile(data_file):
@@ -260,7 +260,7 @@ def get_defaults(module, *args):
     module = ".".join(items[:-1])
     file_name = items[-1]+".yaml"
     
-    defaults_file = get_data_file(module, file_name, defaults=True)
+    defaults_file = get_data_file(module, file_name, subdir="defaults")
     
     with open(defaults_file, "r") as inf:
         defaults_dict = yaml.safe_load(inf)

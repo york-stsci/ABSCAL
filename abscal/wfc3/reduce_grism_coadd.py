@@ -72,10 +72,10 @@ from scipy.stats import mode
 
 from abscal.common.args import parse
 from abscal.common.utils import get_data_file, get_defaults, set_params
-from abscal.common.exposure_data_table import AbscalDataTable
 from abscal.wfc3.reduce_grism_extract import reduce
 from abscal.wfc3.reduce_grism_extract import additional_args as extract_args
 from abscal.wfc3.util_grism_cross_correlate import cross_correlate
+from abscal.wfc3.wfc3_data_table import WFC3DataTable
 
 
 def coadd(input_table, **kwargs):
@@ -321,7 +321,7 @@ def coadd(input_table, **kwargs):
             f_good = deepcopy(spec_net)
             mask = np.where((spec_eps & flags) == 0, 1, 0).astype('int32')
             for ii in range(mask.shape[0]):
-                for jj in range(1, mask[ii].shape[0]):
+                for jj in range(1, mask[ii].shape[0]-1):
                     if mask[ii,jj] == 0:
                         if (mask[ii,jj-1] > 0) and (mask[ii,jj+1] > 0):
                             f_good[ii,jj] = (f_good[ii,jj-1]+f_good[ii,jj+1])/2
@@ -884,10 +884,10 @@ def main(**kwargs):
         if hasattr(parsed, key):
             setattr(parsed, key, kwargs[key])
 
-    input_table = AbscalDataTable(table=parsed.table,
-                                  duplicates='both',
-                                  search_str='',
-                                  search_dirs=parsed.paths)
+    input_table = WFC3DataTable(table=parsed.table,
+                                duplicates='both',
+                                search_str='',
+                                search_dirs=parsed.paths)
 
     output_table = coadd(input_table, **vars(parsed), **kwargs)
 

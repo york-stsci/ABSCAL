@@ -26,19 +26,63 @@
 # a string of the form "old->new" (where "old" and "new" are the current value and the 
 # desired value respectively), or a string containing the value to append to each matching 
 # entry.
+# 
+#     - type: AND
+#       source: preproc.pro
+#       reason: Only allow P041C exposures with postarg != 0, as best available. Allow oe3f01030 as a special test of off-centre G750L
+#       entries:
+#         - type: OR
+#           entries:
+#           - type: node
+#             column: raw_postarg
+#             key: "< -1."
+#           - type: node
+#             column: raw_postarg
+#             key: "> 1."
+#         - type: OR
+#           entries:
+#           - type: NOT
+#             entries:
+#             - type: node
+#               column: raw_postarg
+#               key: "== 3"
+#           - type: NOT
+#             entries:
+#             - type: node
+#               column: mode
+#               key: "== 'G140L'"
+#         - type: NOT
+#           entries:
+#           - type: node
+#             column: target
+#             key: "== 'P041C'"
+#         - type: NOT
+#           entries:
+#           - type: node
+#             column: root
+#             key: "== 'oe3f01030'"
+
+#     - type: node
+#       column: mode
+#       key: "*MIR*"
+#       source: preproc.pro
+#       reason: Imaging
 
 delete:
-    - column: obset
-      key: ic6907
-      source: prewfc.pro
+    - type: node
+      column: obset
+      key: "ic6907*"
+      source: preproc.pro
       reason: VY2 Bad WL Testing
-    - column: root
-      key: iab907jdq
+    - type: node
+      column: root
+      key: "== 'iab907jdq'"
       source: wfc_process.pro
       reason: POSTARG has wrong sign
 edit:
-    - column: obset
-      key: iab9a
+    - type: node
+      column: obset
+      key: "iab9a*"
       operation: replace
       value: iab9a->iab90
       source: prewfc.pro

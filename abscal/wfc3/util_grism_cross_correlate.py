@@ -46,7 +46,7 @@ from scipy import signal
 
 from abscal.common.args import parse
 from abscal.common.utils import get_data_file, get_defaults, set_params
-from abscal.common.exposure_data_table import AbscalDataTable
+
 
 def cross_correlate(s1, s2, row, **kwargs):
     """

@@ -38,7 +38,7 @@ whilst the IDL version is::
 
 If you use this module from within python, it is recommended to import the 
 `populate_table()` function (if you need any custom table values, you can either pass in 
-an AbscalDataTable directly or pass in keyword parameters that will, in turn, be passed 
+an WFC3DataTable directly or pass in keyword parameters that will, in turn, be passed 
 along to the table creation)::
 
     from abscal.wfc3 import populate_table
@@ -59,9 +59,9 @@ from astropy.time import Time
 from copy import deepcopy
 
 from abscal.common.args import parse
-from abscal.common.exposure_data_table import AbscalDataTable
 from abscal.common.standard_stars import find_star_by_name, find_closest_star
 from abscal.common.utils import absdate, get_data_file, get_defaults
+from .wfc3_data_table import WFC3DataTable
 
 def get_target_name(header):
     """
@@ -146,7 +146,7 @@ def populate_table(data_table=None, **kwargs):
     base_defaults = default_values | get_defaults(kwargs.get('module_name', __name__))
     
     if data_table is None:
-        data_table = AbscalDataTable(**kwargs)
+        data_table = WFC3DataTable(**kwargs)
     
     paths = data_table.search_dirs
     file_template = data_table.search_str
@@ -407,11 +407,11 @@ def main(**kwargs):
         if hasattr(res, key):
             setattr(res, key, kwargs[key])
     
-    table = AbscalDataTable(search_str=res.template,
-                            search_dirs=res.paths,
-                            table=res.in_file,
-                            idl_mode=res.compat,
-                            duplicates=res.duplicates)
+    table = WFC3DataTable(search_str=res.template,
+                          search_dirs=res.paths,
+                          table=res.in_file,
+                          idl_mode=res.compat,
+                          duplicates=res.duplicates)
     
     table = populate_table(data_table=table, verbose=res.verbose, compat=res.compat, 
                            **kwargs)

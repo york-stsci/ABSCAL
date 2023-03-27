@@ -51,7 +51,6 @@ from scipy.signal import medfilt2d
 
 from abscal.common.args import parse
 from abscal.common.utils import get_data_file, set_param
-from abscal.common.exposure_data_table import AbscalDataTable
 
 
 def locate_image(input_table, **kwargs):
