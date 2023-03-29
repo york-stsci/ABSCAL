@@ -99,7 +99,7 @@ def download_mast_program(proposal_ids, download_dir, instruments='all', exts='a
     data_products = data_products[mask]
     if exts != 'all':
         mask = np.array([False for x in data_products['productFilename']])
-        for ext in exts.split("," + ["spt", "asn", "wav"]):
+        for ext in exts.split(",") + ["spt", "asn", "wav"]:
             mask = np.bitwise_or(mask, np.array(["{}.fits".format(ext) in x for x in data_products['productFilename']]))
         data_products = data_products[mask]
     if verbose:
