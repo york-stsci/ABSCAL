@@ -191,6 +191,31 @@ class TwoColumnWindow(ImageWindow):
         pass
 
 
+class PlotLegendWindow(TwoColumnWindow):
+    """
+    Window where the left column has the legend for the right column.
+    """
+    def make_ui_column(self):
+        """
+        Relies on there being a dictionary of lines and labels
+        """
+        legend_list = []
+        for line in self.plot_lines:
+            legend_list.append([sg.Text(line, text_color=self.plot_lines[line].get_color())])
+        legend_col = sg.Column([[sg.Frame('Legend:', legend_list, background_color='white',
+                                          title_color='black', expand_y=True)]], expand_y=True)
+        return legend_col
+
+
+    def create_figure(self):
+        """
+        This figure does not have a backing image.
+        """
+        figure = matplotlib.figure.Figure()
+        ax = figure.add_subplot(1, 1, 1)
+        return figure
+
+
 class SpectrumWindow(TwoColumnWindow):
     """
     Window that puts spectral plot visibility selectors in the left column.
@@ -366,6 +391,7 @@ def run_task(module, task, settings_file, row, task_fn, start_file, end_file, **
     task_info = kwargs.get("task_info", row["root"])
     task_window_class = kwargs.get("task_window_class", TaskWindow)
     output_is_param = kwargs.get("output_is_param", True)
+    preamble = kwargs.get("preamble", "{}.{} {}".format(module, task, row['root']))
     
     if verbose:
         print("{}.{}: Starting".format(module, task))
