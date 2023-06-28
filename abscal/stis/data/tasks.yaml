@@ -4,6 +4,11 @@
 #   - type: string/float/bool/int/etc.
 #   - value: initialization value
 
+hpix:
+    threshold:
+        type: float
+        value: 0.04
+
 ocrreject:
     scalense:
         type: string

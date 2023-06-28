@@ -71,11 +71,59 @@ from pathlib import Path
 from scipy.stats import mode
 
 from abscal.common.args import parse
+from abscal.common.ui import PlotLegendWindow
 from abscal.common.utils import get_data_file, get_defaults, set_params
 from abscal.wfc3.reduce_grism_extract import reduce
 from abscal.wfc3.reduce_grism_extract import additional_args as extract_args
 from abscal.wfc3.util_grism_cross_correlate import cross_correlate
 from abscal.wfc3.wfc3_data_table import WFC3DataTable
+
+
+class CoaddOffsetPlot(PlotLegendWindow):
+    """
+    Shows a plot of a spectrum, with both its initial wavelength fit, and its wavelength
+    fit as derived from cross-correlation.
+    """
+#     def __init__(self, window_title, data_file, *args, **kwargs):
+    
+    def set_up_config(self, kwargs):
+        self.obs = self.handle_kwarg('obs', "N/A", kwargs)
+        self.filter = self.handle_kwarg('filter', "N/A", kwargs)
+        return super().set_up_config(kwargs)
+    
+    def create_figure(self):
+        figure = super().create_figure()
+        ax = figure.axes[0]
+        
+#                             fig = plt.figure()
+#                             ax = fig.add_subplot(111)
+#                             plot_title = '{} {} spectra {} and {} for order {} '
+#                             plot_title += 'with offset {}'
+#                             plot_title = plot_title.format(obs, filter,
+#                                                            igood[0]+1,
+#                                                            igood[i]+1,
+#                                                            iord, offset)
+#                             ax.set_title(plot_title)
+#                             plt.xlim(wb, we)
+#                             spec_label = "Spectrum {}".format(igood[0]+1)
+#                             ax.plot(wl1, net1, label=spec_label)
+#                             spec_label = "Spectrum {} with wave from {}"
+#                             spec_label = spec_label.format(igood[i]+1,
+#                                                            igood[0]+1)
+#                             ax.plot(wl1, neti, label=spec_label)
+#                             w = spec_wave[igood[i],:][0]
+#                             f = f_good[igood[i],:][0]
+#                             spec_label = "Spectrum {} with wave from {}"
+#                             spec_label = spec_label.format(igood[i]+1,
+#                                                            igood[i]+1)
+#                             ax.plot((w + offset*delam), f, label=spec_label)
+#                             ax.legend()
+#                             plt.show()
+#                             msg = "{}: offset {} found is too high, so "
+#                             msg += "cross-correlation offset set to zero for "
+#                             msg += "order={}"
+#                             print(msg.format(preamble, offset, iord))
+#                             offset = 0
 
 
 def coadd(input_table, **kwargs):

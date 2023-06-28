@@ -54,7 +54,7 @@ from collections import defaultdict
 from copy import deepcopy
 from crds import assign_bestrefs
 from distutils.util import strtobool
-import datetime
+from datetime import datetime
 import glob
 import matplotlib
 import matplotlib.pyplot as plt
@@ -77,17 +77,60 @@ from abscal.common.ui import run_task
 from abscal.common.ui import SpectrumWindow
 from abscal.common.ui import TaskWindow
 from abscal.common.ui import TwoColumnWindow
+from abscal.common.utils import associate_reference_file
 from abscal.common.utils import check_params
 from abscal.common.utils import get_value
+from abscal.common.utils import get_data_dir
 from abscal.common.utils import get_data_file
 from abscal.common.utils import get_defaults
 from abscal.common.utils import get_param_types
+from abscal.common.utils import get_reference_file_mapping
 from abscal.common.utils import handle_parameter
 from abscal.common.utils import initialize_value
 from abscal.common.utils import set_params
 from abscal.common.utils import set_image
 from abscal.common.utils import setup_params
 from abscal.stis.stis_data_table import STISDataTable
+
+
+def make_hot_pixel_list(dark_file, threshold):
+    """
+    Create and return a list of hot pixels, given a dark reference file and a count rate
+    threshold.
+    
+    Dark reference files contain a science (SCI) extension which shows the dark count rate
+    at every detector pixel. In order to turn this into a list of hot pixels (pixels whose 
+    count rates exceed the provided threshold), this function filters the data array to an
+    array of pixels whose values exceed the provided threshold, and uses the pixel index 
+    values to produce the pixel co-ordinates.
+    
+    Parameters
+    ----------
+    dark_file : str
+        Name of the dark reference file, potentially including the STIS reference keyword
+        location ("oref") as a path specifier
+    threshold : float
+        The count rate threshold for considering a pixel as a hot pixel
+    
+    Returns
+    -------
+    hot_list : list of tuple
+        List of tuples in the form (x, y, rate) including hot pixels
+    """
+    if "oref$" in dark_file:
+        dark_file = os.path.join(os.environ["oref"], dark_file.replace("oref$", ""))
+    
+    print("Creating hot pixel list")
+    with fits.open(dark_file) as dark:
+        sci_ext = dark['SCI'].data
+        hot_pixels = np.where(sci_ext>=threshold)
+        x_list = hot_pixels[1]
+        y_list = hot_pixels[0]
+        rate_list = sci_ext[hot_pixels]
+        hot_list = [(x, y, r) for x, y, r in zip(x_list, y_list, rate_list)]
+        print("Found {} hot pixels".format(len(hot_list)))
+
+    return hot_list
 
 
 class ExtractionInfoWindow(ImageWindow):
@@ -267,6 +310,7 @@ def reduce_flatfield(input_row, **kwargs):
     """
     task = "stis_reduce_flatfield"
     cr_flag_value = 8192
+    hot_pixel_flag_value = 16
     root = input_row['root']
     mode = input_row['mode']
     target = input_row['target']
@@ -329,6 +373,34 @@ def reduce_flatfield(input_row, **kwargs):
         except Exception as e:
             print("{}: ERROR: {}".format(preamble, e))
             return None
+        
+        # Interpolate across hot pixels
+        if verbose:
+            print("{}: Averaging over hot pixels".format(preamble))
+        hpix_params = setup_params("hpix", "stis", settings, input_row, verbose)
+        hot_pixel_mapping = kwargs['hot_pixel_mapping']
+        with fits.open(interim_file) as exposure:
+            dark_file = exposure[0].header["DARKFILE"]
+        if dark_file not in hot_pixel_mapping:
+            if verbose:
+                print("{}: Creating mapping for {}".format(preamble, dark_file))
+            hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
+        if verbose:
+            print("{}: Hot pixel interpolation".format(preamble))
+        with fits.open(final_file, mode='update') as exposure:
+            for (x, y, rate) in hot_pixel_mapping[dark_file]:
+                if x != 0 and x != exposure['SCI'].data.shape[1]-1:
+                    if (exposure['DQ'].data[y, x-1] < 125) and (exposure['DQ'].data[y, x+1] < 125):
+                        exposure['SCI'].data[y, x] = (exposure['SCI'].data[y, x-1] + exposure['SCI'].data[y, x+1])/2.
+                    elif exposure['DQ'].data[y, x-1] < 125:
+                        exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x-1]
+                    elif exposure['DQ'].data[y, x+1] < 125:
+                        exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x+1]
+                    else:
+                        exposure['SCI'].data[y, x] = 0.
+                        exposure['DQ'].data[y, x] = 252
+                exposure['DQ'].data[y, x] |= hot_pixel_flag_value
+        
     # Finished 2d extraction preparation
 
     if verbose:
@@ -495,6 +567,7 @@ def reduce(input_table, **kwargs):
     else:
         if verbose:
             print("{}: Skipping reference file update".format(task))
+    kwargs['hot_pixel_mapping'] = {}
 
     if verbose:
         print("{}: Starting individual file reductions".format(task))
