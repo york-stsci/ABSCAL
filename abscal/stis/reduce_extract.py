@@ -387,6 +387,10 @@ def reduce_flatfield(input_row, **kwargs):
             hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
         if verbose:
             print("{}: Hot pixel interpolation".format(preamble))
+        # 
+        # The DQ "magic value" of 125 is from the original hot pixel interpolation routine
+        # in IDL calstis.
+        # 
         with fits.open(final_file, mode='update') as exposure:
             for (x, y, rate) in hot_pixel_mapping[dark_file]:
                 if x != 0 and x != exposure['SCI'].data.shape[1]-1:

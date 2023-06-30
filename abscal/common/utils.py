@@ -25,80 +25,8 @@ from datetime import datetime
 from dateutil.parser import parse as date_parse
 from distutils.util import strtobool
 from ruamel.yaml import YAML
+import shutil
 from simpleeval import simple_eval
-
-
-def get_reference_file_mapping(file_dir):
-    """
-    Build a list of reference files, along with their associated USEAFTER dates.
-    
-    Parameters
-    ----------
-    file_dir : str
-        Directory to look in for reference files
-    
-    Returns
-    -------
-    file_mapping : dict
-        Mapping of files to USEAFTER dates
-    """
-    all_files = glob.glob(os.path.join(file_dir, "*.fits"))
-    file_mapping = {}
-    for file in all_files:
-        with fits.open(file) as fits_file:
-            if "USEAFTER" in fits_file[1].header:
-                print("File is {}".format(os.path.basename(file)))
-                print("\tUSEAFTER is {}".format(fits_file[1].header["USEAFTER"]))
-                ref_date = date_parse(fits_file[1].header["USEAFTER"])
-                print("\tParsed date is {}".format(ref_date))
-            else:
-                file_name = os.path.basename(file)
-                print("File name is: {}".format(file_name))
-                date_string = file_name[file_name.find("_")+1:]
-                print("\tDate string: {}".format(date_string))
-                date_string = date_string.replace(".fits", "").replace("pre", "").replace("post", "")
-                print("\tDate string: {}".format(date_string))
-                ref_date = datetime.strptime(date_string, "%b%d_%y")
-                print("\tParsed date is {}".format(ref_date))
-        file_mapping[file] = ref_date
-    return file_mapping
-
-
-def associate_reference_file(exposure_date, file_mapping):
-    """
-    Given a directory of files, which have some combination of
-
-    - USEAFTER keywords, showing the earliest data the reference applies to
-    - file names containing a date equivalent to USEAFTER
-
-    figure out which of those files should be applied to particular data. In this case,
-    we want the most recent reference file whose USEAFTER is *before* the exposure time.
-    
-    Parameters
-    ----------
-    exposure_time : datetime.datetime
-        When the exposure happened
-    
-    file_mapping : dict
-        Mapping of files to USEAFTER dates
-        
-    Returns
-    -------
-    file_to_use : str
-        Path to the reference file to use.
-    """
-    file_to_use = None
-    file_date = None
-    for file in file_mapping:
-        ref_date = file_mapping[file]
-        if ref_date < exposure_date:
-            if file_to_use is None:
-                file_to_use = file
-                file_date = ref_date
-            elif ref_date > file_date:
-                file_to_use = file
-                file_date = ref_date
-    return file_to_use
 
 
 def absdate(pstrtime):
@@ -165,7 +93,7 @@ def get_base_data_dir():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def get_data_dir(module, subdir=None):
+def get_data_dir(module, subdir=None, make=False):
     """
     Find an internal data directory.
     
@@ -180,6 +108,8 @@ def get_data_dir(module, subdir=None):
         abscal.wfc3)
     subdir : str, default None
         Subdirectory (within the data directory)
+    make : bool, default False
+        If the data directory doesn't exist, should it be created?
 
     Returns
     -------
@@ -209,6 +139,9 @@ def get_data_dir(module, subdir=None):
         return data_path
     elif os.path.isdir(data_path.replace(current_loc, local_loc)):
         return data_path.replace(current_loc, local_loc)
+    elif make:
+        os.makedirs(data_path)
+        return data_path
     return None
 
 
@@ -290,6 +223,27 @@ def get_data_file(module, fname, subdir=None):
     
     # If nothing was found, return None
     return None
+
+
+def get_cached_file(module, fname):
+    """
+    Looks in the cache directory (named 'CACHE') associated with "module" for the file 
+    named "fname". If the file exists, return it (and its path). If not, return None.
+    """
+    cache_dir = get_data_dir(module, subdir='CACHE', make=True)
+    if os.path.isfile(os.path.join(cache_dir, fname)):
+        return os.path.join(cache_dir, fname)
+    return None
+
+
+def cache_file(module, fname):
+    """
+    Store a file in the cache directory (named 'CACHE') associated with "module", assuming
+    that the file does not already exist.
+    """
+    cache_dir = get_data_dir(module, subdir='CACHE', make=True)
+    out_file = os.path.join(cache_dir, os.path.basename(fname))
+    shutil.copy(fname, out_file)
     
     
 def _extract_dict(input_dict, output_dict, input_keys):
