@@ -77,14 +77,12 @@ from abscal.common.ui import run_task
 from abscal.common.ui import SpectrumWindow
 from abscal.common.ui import TaskWindow
 from abscal.common.ui import TwoColumnWindow
-from abscal.common.utils import associate_reference_file
 from abscal.common.utils import check_params
 from abscal.common.utils import get_value
 from abscal.common.utils import get_data_dir
 from abscal.common.utils import get_data_file
 from abscal.common.utils import get_defaults
 from abscal.common.utils import get_param_types
-from abscal.common.utils import get_reference_file_mapping
 from abscal.common.utils import handle_parameter
 from abscal.common.utils import initialize_value
 from abscal.common.utils import set_params
