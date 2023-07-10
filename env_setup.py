@@ -79,13 +79,12 @@ def main(**kwargs):
             msg = "Updating latest tag from {} to {}\n"
             sys.stdout.write(msg.format(conf['latest_known_tag'], stenv_tag))
             
-            if have_ryaml:
-                ryaml = YAML()
-                with open("env_config.yml") as inf:
-                    new_config = ryaml.load(inf)
-                new_config["latest_known_tag"] = stenv_tag
-                with open("env_config.yml", mode="w") as outf:
-                    ryaml.dump(new_config, outf)
+            ryaml = YAML()
+            with open("env_config.yml") as inf:
+                new_config = ryaml.load(inf)
+            new_config["latest_known_tag"] = stenv_tag
+            with open("env_config.yml", mode="w") as outf:
+                ryaml.dump(new_config, outf)
     except Exception as e:
         sys.stderr.write("Retrieval error: {}\n".format(e))
         stenv_tag = conf["latest_known_tag"]
@@ -99,6 +98,10 @@ def main(**kwargs):
     if system == "Darwin":
         stenv_sys = "macOS"
         arch_sys = "MacOSX"
+        if platform.processor() == "arm":
+            stenv_sys += "-ARM64"
+        else:
+            stenv_sys += "-X64"
     elif system == "Linux":
         stenv_sys = "Linux"
         arch_sys = "Linux"
