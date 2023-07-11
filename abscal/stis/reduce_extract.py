@@ -341,11 +341,17 @@ def reduce_flatfield(input_row, **kwargs):
         if verbose:
             print("{}: CCD reduction: first pass".format(preamble))
         
+        with fits.open(raw_file, mode="update") as exposure:
+            exposure[0].header['HISTORY'] = "ABSCAL: Starting 2d reduction"
+        
         # Do the 2D reduction
         interim_file = os.path.join(path, root+"_interim.fits")
         if os.path.isfile(interim_file):
             os.remove(interim_file)
         basic2d.basic2d(raw_file, output=interim_file, verbose=verbose)
+        
+        with fits.open(interim_file, mode="update") as exposure:
+            exposure[0].header['HISTORY'] = "ABSCAL: Finished running basic2d"
         
         # Set up and run the cosmic ray rejection task
         figure_windows = []
@@ -371,6 +377,9 @@ def reduce_flatfield(input_row, **kwargs):
         except Exception as e:
             print("{}: ERROR: {}".format(preamble, e))
             return None
+        
+        with fits.open(final_file, mode="update") as exposure:
+            exposure[0].header["HISTORY"] = "ABSCAL: Finished running OCRREJECT"
         
         # Interpolate across hot pixels
         if verbose:
@@ -402,6 +411,7 @@ def reduce_flatfield(input_row, **kwargs):
                         exposure['SCI'].data[y, x] = 0.
                         exposure['DQ'].data[y, x] = 252
                 exposure['DQ'].data[y, x] |= hot_pixel_flag_value
+            exposure[0].header["HISTORY"] = "ABSCAL: Finished hot pixel interpolation"
         
     # Finished 2d extraction preparation
 
@@ -611,7 +621,7 @@ def reduce(input_table, **kwargs):
                         print(msg.format(task, root))
                     continue
 
-        # Only reduce grism data in the reduce function.
+        # Only reduce spectroscopic data in the reduce function.
         if row['use']:
             if verbose:
                 print("{}: Starting {}".format(task, root))
