@@ -541,6 +541,15 @@ def coadd(input_table, **kwargs):
                             offset = 0
 
                         wcor[i,:] = spec_wave[igood[i],:] + offset*delam
+                        
+                        # Currently only apply the offset correction derived from the first
+                        # spectral order:
+                        if iord == 1:
+                            with fits.open(spec_files[i], mode='update') as exposure:
+                                exposure[0].header['HISTORY'] = "Updated wavelength based on cross-correlation"
+                                exposure[1].data['wl_uncorrected'] = deepcopy(exposure[1].data['wavelength'])
+                                exposure[1].data['wavelength'] = exposure[1].data['wavelength'] + offset*delam
+                                
 
                         # Based on "; corners in ibwt01(uqq)"
                         if abs(offset) > 12:
