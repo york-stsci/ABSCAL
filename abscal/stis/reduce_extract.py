@@ -67,6 +67,7 @@ import shutil
 from stistools import basic2d
 from stistools import ocrreject
 from stistools import x1d as stis_extract
+from stistools.wavecal import wavecal
 import traceback
 import yaml
 
@@ -291,10 +292,49 @@ class CosmicRayTaskWindow(TaskWindow):
 
 def reduce_flatfield(input_row, **kwargs):
     """
-    Perform the calstis "basic2d" data reduction, including iterating on cosmic ray
-    rejection. This is done by repeatedly calling the calstis "basic2d" on the raw STIS
-    data with various calibration flag settings, and by calling "ocrreject" separately in 
-    order to have finer control over cosmic ray rejection parameters.
+    Perform the calstis "basic2d" data reduction. For MAMA exposures, this can be done 
+    with a `stistools.wavecal.wavecal` call to derive the individual SHIFTA1 and SHIFTA2 
+    values, followed by a single call to `stistools.basic2d`. For CCD exposures, the 
+    procedure is considerably more involved.
+    
+    In order to obtain the maximum possible signal from the exposures, ABSCAL requires 
+    interactive iteration on cosmic ray rejection. This is done by repeatedly calling the
+    `stistools.ocrreject` function with different parameters until it can be confirmed 
+    that the cosmic ray rejection is not rejecting parts of the spectrum as cosmic rays.
+    
+    In addition, because the STIS absolute flux calibration exposures use CR-SPLIT, all
+    exposures in a single visit are taken at the same pointing (i.e. without any 
+    intervening dithers), so hot pixels will be at the same place in each exposure. 
+    Because the STIS dark correction does not necessarily perfectly remove hot pixels, 
+    and because the spectra of the targets is well-known, the ABSCAL calibration 
+    introduces the additional step of interpolating over hot pixels in the spectral 
+    direction, something that must be done after the general dark correction step.
+    
+    All of the above is done by repeatedly calling the calstis "basic2d" on the raw STIS
+    data with various calibration flag settings, in order to add the additional operations
+    in to the appropriate place. Because the STIS calibration program is re-entrant (i.e. 
+    you can run part of it on a given input file, do some other work, and then run the rest 
+    on that same file without any theoretical loss of correctness, unless your own changes 
+    introduced errors), this function calls the "basic2d" function multiple times, with 
+    different sets of flags enabled. In particular, the standard CCD basic2d flow is:
+    
+    - Initialize DQI
+    - Bias correction and subtraction
+    - Cosmic ray rejection
+    - Dark subtraction
+    - Flatfield division
+    - Populate photometric keywords
+    
+    The revised flow (including the additional steps added for ABSCAL, and the steps that 
+    are usually done as part of calstis, but are not done by basic2d itself) is:
+    
+    - Initialize DQI, bias correction, bias subtraction
+    - Interactive cosmic ray rejection
+    - Dark subtraction
+    - Hot pixel interpolation
+    - Flatfield division
+    - Populate photometric keywords
+    - Populate SHIFT keywords by calibrating wavecal exposure
 
     Parameters
     ----------
@@ -316,10 +356,12 @@ def reduce_flatfield(input_row, **kwargs):
     path = input_row['path']
     fname = input_row['filename']
     raw_file = os.path.join(path, fname)
+    crj_file = raw_file.replace("_raw", "_crj")
     final_file = raw_file.replace("_raw", "_{}_{}_2d".format(target, mode))
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
     exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get("verbose", False)
+    interp_hot = kwargs.get("interp_hot", default=True)
 
     settings = {}
     setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
@@ -327,8 +369,6 @@ def reduce_flatfield(input_row, **kwargs):
         with open(setting_file, 'r') as inf:
             settings = yaml.safe_load(inf)
     
-    # Do we want to make basic2d interactive? My thought is currently "no"
-
     if verbose:
         print("{}: starting".format(preamble))
     
@@ -339,19 +379,31 @@ def reduce_flatfield(input_row, **kwargs):
         basic2d.basic2d(raw_file, output=final_file, verbose=verbose)
     else:
         if verbose:
-            print("{}: CCD reduction: first pass".format(preamble))
+            print("{}: CCD reduction.".format(preamble))
         
+        # Default calibration flag values
+        # dqicorr='perform', 
+        # blevcorr='perform', 
+        # biascorr='perform', 
+        # darkcorr='perform', 
+        # flatcorr='perform', 
+        # photcorr='perform', 
+
+        # First pass: DQI and Bias
         with fits.open(raw_file, mode="update") as exposure:
             exposure[0].header['HISTORY'] = "ABSCAL: Starting 2d reduction"
+            exposure[0].header['DARKCORR'] = "omit"
+            exposure[0].header['FLATCORR'] = "omit"
+            exposure[0].header['PHOTCORR'] = "omit"
         
         # Do the 2D reduction
-        interim_file = os.path.join(path, root+"_interim.fits")
+        interim_file = os.path.join(path, root+"_firstpass.fits")
         if os.path.isfile(interim_file):
             os.remove(interim_file)
         basic2d.basic2d(raw_file, output=interim_file, verbose=verbose)
         
         with fits.open(interim_file, mode="update") as exposure:
-            exposure[0].header['HISTORY'] = "ABSCAL: Finished running basic2d"
+            exposure[0].header['HISTORY'] = "ABSCAL: Finished running basic2d first pass"
         
         # Set up and run the cosmic ray rejection task
         figure_windows = []
@@ -372,48 +424,83 @@ def reduce_flatfield(input_row, **kwargs):
 
         try:
             run_task("stis", "ocrreject", setting_file, input_row, ocrreject.ocrreject, 
-                     interim_file, final_file, verbose=verbose, figure_windows=figure_windows, 
+                     interim_file, crj_file, verbose=verbose, figure_windows=figure_windows, 
                      task_window_class=CosmicRayTaskWindow, output_is_param=False)
         except Exception as e:
             print("{}: ERROR: {}".format(preamble, e))
             return None
         
-        with fits.open(final_file, mode="update") as exposure:
+        # Second pass: dark correction
+        with fits.open(crj_file, mode="update") as exposure:
             exposure[0].header["HISTORY"] = "ABSCAL: Finished running OCRREJECT"
+            exposure[0].header["DARKCORR"] = "perform"
+            exposure[0].header["HISTORY"] = "ABSCAL: Running dark correction"
         
-        # Interpolate across hot pixels
-        if verbose:
-            print("{}: Averaging over hot pixels".format(preamble))
-        hpix_params = setup_params("hpix", "stis", settings, input_row, verbose)
-        hot_pixel_mapping = kwargs['hot_pixel_mapping']
-        with fits.open(interim_file) as exposure:
-            dark_file = exposure[0].header["DARKFILE"]
-        if dark_file not in hot_pixel_mapping:
+        interim_file = os.path.join(path, root+"_secondpass.fits")
+        if os.path.isfile(interim_file):
+            os.remove(interim_file)
+        basic2d.basic2d(crj_file, output=interim_file, verbose=verbose)
+        
+        # Don't do interpolation on flats
+        if target.lower() == 'tungsten':
+            with fits.open(interim_file, mode='update') as exposure:
+                exposure[0].header["HISTORY"] = "ABSCAL: Skipping hot pixel interpolation for TUNGSTEN"
+                exposure[0].header["FLATCORR"] = "perform"
+                exposure[0].header["PHOTCORR"] = "perform"
+                exposure[0].header["HISTORY"] = "ABSCAL: Third pass"
+        elif not interp_hot:
+            with fits.open(interim_file, mode='update') as exposure:
+                exposure[0].header["HISTORY"] = "ABSCAL: Skipping hot pixel interpolation (flagged OMIT)"
+                exposure[0].header["FLATCORR"] = "perform"
+                exposure[0].header["PHOTCORR"] = "perform"
+                exposure[0].header["HISTORY"] = "ABSCAL: Third pass"
+        else:
+            # Interpolate across hot pixels
             if verbose:
-                print("{}: Creating mapping for {}".format(preamble, dark_file))
-            hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
-        if verbose:
-            print("{}: Hot pixel interpolation".format(preamble))
-        # 
-        # The DQ "magic value" of 125 is from the original hot pixel interpolation routine
-        # in IDL calstis.
-        # 
-        with fits.open(final_file, mode='update') as exposure:
-            for (x, y, rate) in hot_pixel_mapping[dark_file]:
-                if x != 0 and x != exposure['SCI'].data.shape[1]-1:
-                    if (exposure['DQ'].data[y, x-1] < 125) and (exposure['DQ'].data[y, x+1] < 125):
-                        exposure['SCI'].data[y, x] = (exposure['SCI'].data[y, x-1] + exposure['SCI'].data[y, x+1])/2.
-                    elif exposure['DQ'].data[y, x-1] < 125:
-                        exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x-1]
-                    elif exposure['DQ'].data[y, x+1] < 125:
-                        exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x+1]
-                    else:
-                        exposure['SCI'].data[y, x] = 0.
-                        exposure['DQ'].data[y, x] = 252
-                exposure['DQ'].data[y, x] |= hot_pixel_flag_value
-            exposure[0].header["HISTORY"] = "ABSCAL: Finished hot pixel interpolation"
+                print("{}: Averaging over hot pixels".format(preamble))
+            hpix_params = setup_params("hpix", "stis", settings, input_row, verbose)
+            hot_pixel_mapping = kwargs['hot_pixel_mapping']
+            with fits.open(interim_file) as exposure:
+                dark_file = exposure[0].header["DARKFILE"]
+            if dark_file not in hot_pixel_mapping:
+                if verbose:
+                    print("{}: Creating mapping for {}".format(preamble, dark_file))
+                hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
+            if verbose:
+                print("{}: Hot pixel interpolation".format(preamble))
+            # 
+            # The DQ "magic value" of 125 is from the original hot pixel interpolation routine
+            # in IDL calstis.
+            # 
+            with fits.open(interim_file, mode='update') as exposure:
+                for (x, y, rate) in hot_pixel_mapping[dark_file]:
+                    if x != 0 and x != exposure['SCI'].data.shape[1]-1:
+                        if (exposure['DQ'].data[y, x-1] < 125) and (exposure['DQ'].data[y, x+1] < 125):
+                            exposure['SCI'].data[y, x] = (exposure['SCI'].data[y, x-1] + exposure['SCI'].data[y, x+1])/2.
+                        elif exposure['DQ'].data[y, x-1] < 125:
+                            exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x-1]
+                        elif exposure['DQ'].data[y, x+1] < 125:
+                            exposure['SCI'].data[y, x] = exposure['SCI'].data[y, x+1]
+                        else:
+                            exposure['SCI'].data[y, x] = 0.
+                            exposure['DQ'].data[y, x] = 252
+                    exposure['DQ'].data[y, x] |= hot_pixel_flag_value
+                exposure[0].header["HISTORY"] = "ABSCAL: Finished hot pixel interpolation"
+                exposure[0].header["FLATCORR"] = "perform"
+                exposure[0].header["PHOTCORR"] = "perform"
+                exposure[0].header["HISTORY"] = "ABSCAL: Third pass"
+        
+        # Third pass: flatfield and photometric keywords
+        basic2d.basic2d(interim_file, output=final_file, verbose=verbose)
         
     # Finished 2d extraction preparation
+    
+    # Assign wavelength offsets
+    wave_file = raw_file.replace("_raw", "_wav")
+    if os.path.isfile(wave_file):
+        if verbose:
+            print("{}: Running wavecal to assign SHIFT keywords")
+        wavecal(final_file, wave_file, verbose=verbose)
 
     if verbose:
         print("{}: finished".format(preamble))
@@ -697,6 +784,19 @@ def additional_args(**kwargs):
     else:
         ref_kwargs['action'] = 'store_true'
     additional_args['ref_update'] = (ref_args, ref_kwargs)
+    
+    interp_default = base_defaults['interpolate_hot_pixels']
+    if isinstance(interp_default, str):
+        interp_default = strtobool(interp_default)
+    interp_help = "Toggle whether to interpolate over hot pixels (default {})"
+    interp_help.format(interp_default)
+    interp_args = ["--interpolate_hot_pixels"]
+    interp_kwargs = {'dest': 'interp_hot', default: interp_default, 'help': interp_help}
+    if interp_default:
+        interp_kwargs['action'] = 'store_false'
+    else:
+        interp_kwargs['action'] = 'store_true'
+    additional_args['interp_hot'] = (interp_args, interp_kwargs)
 
     return additional_args
 

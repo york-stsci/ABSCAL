@@ -547,6 +547,9 @@ def coadd(input_table, **kwargs):
                         if iord == 1:
                             with fits.open(spec_files[i], mode='update') as exposure:
                                 exposure[0].header['HISTORY'] = "Updated wavelength based on cross-correlation"
+                                exposure[0].header['OFFSET'] = (offset, "Wavelength Pixel Offset from cross-correlation")
+                                exposure[0].header['DELAM'] = (delam, "Average per-pixel dispersion in angstroms")
+                                exposure[0].header['HISTORY'] = "To obtain original solution, subtract OFFSET*DELAM"
                                 exposure[1].data['wavelength'] = exposure[1].data['wavelength'] + offset*delam
                                 
 
@@ -555,6 +558,7 @@ def coadd(input_table, **kwargs):
                             raise ValueError("Offset > 12.")
                         if arr is None: #error in cross-correlation fn.
                             raise ValueError("Error in cross-correlation.")
+                    # Finished deriving wavelength pixel offsets from cross-correlation
 
                     # Output Plots
                     if show_plots:

@@ -48,13 +48,14 @@ def set_var(name, value, setup_file, remove_file):
     - Restore any existing variable that was created
     """
     with open(setup_file, 'a+') as f:
-        f.write('export {0}_CONDA_BACKUP="{{0}}:-"\nexport {0}={1}\n'.format(name, value))
+        write_str = 'export {}_CONDA_BACKUP='.format(name)
+        write_str += '${'+name+':-}\n'
+        write_str += 'export {0}={1}\n'.format(name, value)
+        f.write(write_str)
 
     with open(remove_file, 'a+') as f:
-        write_str = 'export {}="'.format(name)
-        write_str += "{"
-        write_str += "{}_CONDA_BACKUP:-".format(name)
-        write_str += '}"\nunset '
+        write_str = 'export {}='.format(name)
+        write_str += "${" + "{}_CONDA_BACKUP:-".format(name) + '}\nunset '
         write_str += "{}_CONDA_BACKUP\n".format(name)
         f.write(write_str)
         f.write('if [ -z ${0} ]; then\n    unset {0}\nfi\n'.format(name))
@@ -92,13 +93,18 @@ def main(**kwargs):
     
     sys.stdout.write("Latest STENV is {}.\n".format(stenv_tag))
     
+    telescope = conf['telescope']
+    
+    sys.stdout.write("Setting up an environment for {} use".format(telescope))
+    
     # Find the platform we're running on. Currently support Linux and MacOS, because that's
     # what ``stenv`` supports
     system = platform.system()
     if system == "Darwin":
         stenv_sys = "macOS"
         arch_sys = "MacOSX"
-        if platform.processor() == "arm":
+        arch = platform.processor()
+        if arch == "arm":
             stenv_sys += "-ARM64"
         else:
             stenv_sys += "-X64"
@@ -133,6 +139,7 @@ def main(**kwargs):
             sys.stderr.write(msg)
             sys.exit(1)
     conda_cmd = os.path.join(conda_prefix, "bin", "conda-env")
+    pip_install_prefix = ['conda', 'run', '-n', conf['name'], 'python', '-m', 'pip', 'install']
     
     sys.stdout.write("Initializing {} from {}.\n".format(conf['name'], stenv_url))
     
@@ -143,9 +150,23 @@ def main(**kwargs):
         sys.stderr.write(msg)
         sys.exit(1)
     
-    sys.stdout.write("Creating initial environment from URL.\n")
-    subprocess.run([conda_cmd, "create", "-n", conf['name'], "--file", stenv_url], 
-                   env=os.environ.copy())
+    # Create basic STENV environment
+    if system == "Darwin" and arch == "arm":
+        sys.stdout.write("Creating initial empty environment.\n")
+        base_conda_cmd = os.path.join(conda_prefix, "bin", "conda")
+        subprocess.run([base_conda_cmd, "create", "-n", conf['name'], 'python={}'.format(conf['python_version'])])
+        sys.stdout.write("Installing numpy with apple silicon acceleration.\n")
+        subprocess.check_call(pip_install_prefix+['--no-binary', ':all:', '--no-use-pep517', 'numpy'])
+        sys.stdout.write("Configuring conda.\n")
+        subprocess.run(["conda", "config", "--set", "pip_interop_enabled", "true"])
+        sys.stdout.write("Updating environment from URL.\n")
+        subprocess.run(["conda", "env", "update", "--name", conf['name'], "--file", stenv_url])
+    else:
+        sys.stdout.write("Creating initial environment from URL.\n")
+        subprocess.run([conda_cmd, "create", "-n", conf['name'], "--file", stenv_url], 
+                       env=os.environ.copy())
+
+    # Elaborate with additional configuration
     if "local_env" in conf:
         with open(conf['local_env']) as inf:
             additional_config = yaml.safe_load(inf)
@@ -154,10 +175,10 @@ def main(**kwargs):
                 for package in item["pip"]:
                     if package == "-e .":
                         sys.stdout.write("Installing local module with pip.\n")
-                        subprocess.check_call(['conda', 'run', '-n', conf['name'], 'python', '-m', 'pip', 'install', '-e', os.getcwd()])
+                        subprocess.check_call(pip_install_prefix+['-e', os.getcwd()])
                     else:
                         sys.stdout.write("Installing {} with pip.\n".format(package))
-                        subprocess.check_call(['conda', 'run', '-n', conf['name'], 'python', '-m', 'pip', 'install', package])
+                        subprocess.check_call(pip_install_prefix+[package])
 # This is commented out because currently the constructed STENV is at least sometimes
 # inconsistent, and so I'm installing pip things manually.
 #         msg = "Updating {} environment from local file {}.\n"
@@ -165,16 +186,25 @@ def main(**kwargs):
 #         subprocess.run([conda_cmd, "update", "--name", conf['name'], "--file", 
 #             conf['local_env']], env=os.environ.copy())
     
-    if 'env' in config:
-        activate_path = os.path.join(env_path, "etc", "conda", "activate.d")
-        if not os.path.exists(activate_path):
-            os.makedirs(activate_path)
-        activate_file = os.path.join(activate_path, "{}_activate.sh".format(conf['name']))
+    activate_path = os.path.join(env_path, "etc", "conda", "activate.d")
+    if not os.path.exists(activate_path):
+        os.makedirs(activate_path)
+    activate_file = os.path.join(activate_path, "{}_activate.sh".format(conf['name']))
 
-        deactivate_path = os.path.join(env_path, "etc", "conda", "deactivate.d")
-        if not os.path.exists(deactivate_path):
-            os.makedirs(deactivate_path)
-        deactivate_file = os.path.join(deactivate_path, "{}_deactivate.sh".format(conf['name']))
+    deactivate_path = os.path.join(env_path, "etc", "conda", "deactivate.d")
+    if not os.path.exists(deactivate_path):
+        os.makedirs(deactivate_path)
+    deactivate_file = os.path.join(deactivate_path, "{}_deactivate.sh".format(conf['name']))
+    
+    # Set up info variables for the environment
+    set_var('{}_version'.format(conf['name']), conf['package_version'], activate_file, deactivate_file)
+    set_var('{}_date'.format(conf['name']), conf['env_date'], activate_file, deactivate_file)
+    set_var('stenv_version', stenv_tag, activate_file, deactivate_file)
+        
+    if 'env' in config:
+        internal_crds = False
+        if 'CRDS_PATH' in os.environ and os.environ['CRDS_PATH'][:4] == "/grp":
+            internal_crds = True
         
         if 'special' in config['env']:
             if "package" in config['env']['special']:
@@ -189,6 +219,26 @@ def main(**kwargs):
                     var_value = os.path.join(spkg, conf['package_name'])
                 var_name = "{}_PKG".format(conf['package_name'])
                 set_var(var_name, var_value, activate_file, deactivate_file)
+            if 'CRDS_PATH' in config['env']['special']:
+                # This is important because, especially for internal STScI people, the CRDS
+                # cache path isn't *quite* the same as it is otherwise.
+                if internal_crds:
+                    value = '/grp/crds/{}'.format(telescope)
+                elif 'CRDS_PATH' not in os.environ:
+                    value = '$HOME/crds_cache'
+                else:
+                    value = os.environ['CRDS_PATH']
+                set_var('CRDS_PATH', value, activate_file, deactivate_file)
+        
+        if 'crds_vars' in config['env']:
+            if 'CRDS_PATH' not in os.environ:
+                set_var('CRDS_PATH', '$HOME/crds_cache', activate_file, deactivate_file)
+            for item in config['env']['crds_vars']:
+                if internal_crds:
+                    value = '$CRDS_PATH/references/{}'.format(telescope)
+                else:
+                    value = '$CRDS_PATH/references/{}/{}'.format(telescope, item)
+                set_var(item, value, activate_file, deactivate_file)
         
         if 'vars' in config['env']:
             for item in config['env']['vars']:

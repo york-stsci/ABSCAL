@@ -16,5 +16,6 @@
 
 all:
     # Command-line Keywords
-    plots: True         # Run in interactive mode
-    ref_update: True    # Update reference files on-the-fly while running
+    plots: True                 # Run in interactive mode
+    ref_update: True            # Update reference files on-the-fly while running
+    hot_pixel_interpolate: True # Interpolate over hot pixels during 2D processing

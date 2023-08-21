@@ -30,9 +30,12 @@
 base:
   name: abscal                  # the name of the package, and of the environment to create
   package_name: abscal          # the name of the python module in the repository
-  python_version: '3.10'            # currently one of 3.8, 3.9, 3.10, or 3.11
-  conda_path: ${HOME}/conda         # if conda is not installed, where to install it.
-  local_env: env_update.yml         # local environment file to use to update STENV
+  python_version: '3.10'        # currently one of 3.8, 3.9, 3.10, or 3.11
+  conda_path: ${HOME}/conda     # if conda is not installed, where to install it.
+  local_env: env_update.yml     # local environment file to use to update STENV
+  telescope: hst                # which telescope to configure for
+  package_version: 2.0.dev      # Which version of the package this environment was set up for
+  env_date: '2023-07-27'        # What date the configuration was last modified
   latest_known_tag: 2023.02.16      # in case of an error getting the tag URL
     # This URL is used for getting a JSON file that has release tags in it.
   info_url: https://api.github.com/repos/spacetelescope/stenv/releases/latest
@@ -49,6 +52,8 @@ base:
 env:
     # This contains environment variables that need special processing of one sort or 
     # another.
+
+  # These are variables that need to be called out specifically
   special:
         # Including "package" means that an environment variable will be set up to point
         # to the installation location of the python package itself. The variable will be 
@@ -56,11 +61,18 @@ env:
         # to use this, your local environment file should install itself (i.e. in 
         # 'pip dependencies' include either "- ." or "- -e .")
   - package
-    # This is the list of environment variables to set. Order can matter here in the 
-    # sense that variables will be added to the setup file in order, so a later variable
-    # can refer to a previous variable.
+  - CRDS_PATH
+
+  # These are variables that point to specific CRDS references, and work differently for
+  # local versus global
+  crds_vars:
+  - oref
+
+  # This is the list of environment variables to set. Order can matter here in the 
+  # sense that variables will be added to the setup file in order, so a later variable
+  # can refer to a previous variable.
   vars:
-  - CRDS_PATH: ${HOME}/crds_cache/                  # Local CRDS cache
+  - CRDS_SERVER_URL: https://hst-crds.stsci.edu     # CRDS server URL for Hubble
   - oref: ${CRDS_PATH}/references/hst/oref/         # STIS data location
   - WFCREF: ${abscal_PKG}/wfc3/data/WFCREF          # WFC3 reference data for IDL
   - idl_base: ${abscal_PKG}/idl_code                # Location of IDL code

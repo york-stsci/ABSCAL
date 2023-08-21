@@ -1,12 +1,12 @@
 from setuptools import setup
 from setuptools import find_packages
 
-import glob
+from glob import glob, iglob
 import os
 
 
 file_dir = os.path.abspath(__file__)
-version_str = '1.0.dev'
+version_str = '2.0.dev'
 
 setup(
     name = 'abscal',
@@ -30,21 +30,24 @@ setup(
                         "astroquery"
                        ],
     version = version_str,
-    scripts=glob.glob("abscal/commands/*"),
+    scripts=glob("abscal/commands/*"),
     package_data =  {
-                        "": ["data/*", 
-                             "data/defaults/*", 
-                             "idl_code", 
-                             "idl_code/*",
-                             "idl_code/common/*", 
-                             "idl_code/cookbooks/*", 
-                             "idl_code/stis/*",
-                             "idl_code/stis/calstis/*", 
-                             "idl_code/stis/manual/*",
-                             "idl_code/wfc3/*"],
-                        "wfc3": ["data/*",
-                                 "data/pnref/*",
-                                 "data/wfcref/*"]
+                        "": [x.replace("abscal/", "") for x in iglob('abscal/data/**/*', recursive=True)] +
+                            [x.replace("abscal/", "") for x in iglob('abscal/idl_code/**/*', recursive=True)],
+#                             ["data/*", 
+#                              "data/defaults/*", 
+#                              "idl_code", 
+#                              "idl_code/*",
+#                              "idl_code/common/*", 
+#                              "idl_code/cookbooks/*", 
+#                              "idl_code/stis/*",
+#                              "idl_code/stis/calstis/*", 
+#                              "idl_code/stis/manual/*",
+#                              "idl_code/wfc3/*"],
+                        "wfc3": [x.replace("abscal/wfc3/", "") for x in iglob('abscal/wfc3/data/**/*', recursive=True)]
+#                                  "data/*",
+#                                  "data/pnref/*",
+#                                  "data/wfcref/*"]
                     },
     include_package_data=True
     )
