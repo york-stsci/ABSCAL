@@ -64,12 +64,16 @@ from pathlib import Path
 import PySimpleGUI as sg
 from scipy.signal import find_peaks_cwt
 import shutil
+import traceback
+import yaml
+
 from stistools import basic2d
 from stistools import ocrreject
 from stistools import x1d as stis_extract
 from stistools.wavecal import wavecal
-import traceback
-import yaml
+from stistools.defringe import defringe
+from stistools.defringe import mkfringeflat
+from stistools.defringe import normspflat
 
 from abscal.common.args import parse
 from abscal.common.ui import handle_parameter_window
@@ -358,10 +362,11 @@ def reduce_flatfield(input_row, **kwargs):
     raw_file = os.path.join(path, fname)
     crj_file = raw_file.replace("_raw", "_crj")
     final_file = raw_file.replace("_raw", "_{}_{}_2d".format(target, mode))
+    wave_file = raw_file.replace("_raw", "_wav")
     preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
     exp_info = "{} {} {}".format(root, target, mode)
     verbose = kwargs.get("verbose", False)
-    interp_hot = kwargs.get("interp_hot", default=True)
+    interp_hot = kwargs.get("interp_hot", True)
 
     settings = {}
     setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
@@ -430,6 +435,21 @@ def reduce_flatfield(input_row, **kwargs):
             print("{}: ERROR: {}".format(preamble, e))
             return None
         
+        # Intermediate pass for G750L: defringing
+        if mode == "G750L" and "fringe" in kwargs and kwargs["fringe"] is not None:
+            # Do de-fringing
+            with fits.open(crj_file, mode="update") as exposure:
+                exposure[0].header["HISTORY"] = "ABSCAL: Running de-fringing with {}".format(kwargs["fringe"])
+            fringe_file = os.path.join(path, kwargs["fringe"])
+            normspflat(fringe_file, do_cal=True, wavecal=wave_file)
+            interim_fringe = fringe_file.replace("raw", "nsp")
+            fringe_flat = fringe_file.replace("raw", "frr")
+            mkfringeflat(crj_file, interim_fringe, fringe_flat)
+            defringe(crj_file, fringe_flat)
+            crj_file = crj_file.replace("crj", "drj")
+            with fits.open(crj_file, mode="update") as exposure:
+                exposure[0].header["HISTORY"] = "ABSCAL: Finished de-fringing"
+        
         # Second pass: dark correction
         with fits.open(crj_file, mode="update") as exposure:
             exposure[0].header["HISTORY"] = "ABSCAL: Finished running OCRREJECT"
@@ -496,7 +516,6 @@ def reduce_flatfield(input_row, **kwargs):
     # Finished 2d extraction preparation
     
     # Assign wavelength offsets
-    wave_file = raw_file.replace("_raw", "_wav")
     if os.path.isfile(wave_file):
         if verbose:
             print("{}: Running wavecal to assign SHIFT keywords")
@@ -675,6 +694,15 @@ def reduce(input_table, **kwargs):
         target = row['target']
         mode = row['mode']
         preamble = "{}: {}".format(task, root)
+        # lamp exposure, for de-fringing
+        if target == 'TUNGSTEN':
+            continue
+        #exposure that needs a fringe flat
+        elif mode == 'G750L': 
+            kwargs['fringe'] = None
+            mask = (input_table['obset'] == row['obset']) & (input_table['target'] == 'TUNGSTEN')
+            if len(input_table[mask]) > 0:
+                kwargs['fringe'] = input_table[mask][0]['filename']
 
         # Don't extract if there's already an extracted version of
         #   the file present.
@@ -791,7 +819,7 @@ def additional_args(**kwargs):
     interp_help = "Toggle whether to interpolate over hot pixels (default {})"
     interp_help.format(interp_default)
     interp_args = ["--interpolate_hot_pixels"]
-    interp_kwargs = {'dest': 'interp_hot', default: interp_default, 'help': interp_help}
+    interp_kwargs = {'dest': 'interp_hot', 'default': interp_default, 'help': interp_help}
     if interp_default:
         interp_kwargs['action'] = 'store_false'
     else:
