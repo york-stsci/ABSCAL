@@ -208,7 +208,7 @@ def get_data_file(module, fname, subdir=None, optional=False):
         if os.path.isfile(data_file):
             # Try for the data file (with potential user-supplied path)
             return data_file
-        elif os.path.isfile(local_file:
+        elif os.path.isfile(local_file):
             # Fall back to the local version
             return local_file
 

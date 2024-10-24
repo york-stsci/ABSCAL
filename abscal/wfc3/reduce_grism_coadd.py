@@ -233,8 +233,8 @@ def coadd(input_table, **kwargs):
                     if verbose:
                         msg = "{}: {} co-added file {} found. Skipping."
                         print(msg.format(task, obs, out_file_name))
-                        out_mask = (output_table['obset'] == obs) & \
-                                   (output_table['filter'] == filter)
+                    out_mask = (output_table['obset'] == obs) & \
+                                (output_table['filter'] == filter)
                     output_table["coadded"][out_mask] = out_file
                     continue
 
