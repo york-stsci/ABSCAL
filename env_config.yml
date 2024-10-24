@@ -82,4 +82,4 @@ env:
   - idl_wfc: ${idl_base}/wfc3                       # WFC3-specific IDL code
         # IDL path – keep the existing path and add all of the above items
   - IDL_PATH: ${idl_stis}:${idl_calstis}:${idl_wfc}:${IDL_PATH}
-latest_known_tag: 2023.06.08
+latest_known_tag: 2024.08.14

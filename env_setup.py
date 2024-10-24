@@ -156,7 +156,7 @@ def main(**kwargs):
         base_conda_cmd = os.path.join(conda_prefix, "bin", "conda")
         subprocess.run([base_conda_cmd, "create", "-n", conf['name'], 'python={}'.format(conf['python_version'])])
         sys.stdout.write("Installing numpy with apple silicon acceleration.\n")
-        subprocess.check_call(pip_install_prefix+['--no-binary', ':all:', '--no-use-pep517', 'numpy'])
+        subprocess.check_call(pip_install_prefix+['numpy'])
         sys.stdout.write("Configuring conda.\n")
         subprocess.run(["conda", "config", "--set", "pip_interop_enabled", "true"])
         sys.stdout.write("Updating environment from URL.\n")

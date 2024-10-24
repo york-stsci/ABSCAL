@@ -145,7 +145,7 @@ def get_data_dir(module, subdir=None, make=False):
     return None
 
 
-def get_data_file(module, fname, subdir=None):
+def get_data_file(module, fname, subdir=None, optional=False):
     """
     Find an internal data file.
     
@@ -162,6 +162,8 @@ def get_data_file(module, fname, subdir=None):
         The file name of interest
     subdir : str, default None
         Subdirectory (within the data directory)
+    optional : bool, default False
+        Is the file optional? If so, no error on not found.
 
     Returns
     -------
@@ -181,13 +183,14 @@ def get_data_file(module, fname, subdir=None):
     data_path = get_data_dir(module, subdir)
 
     data_file = os.path.join(data_path, fname)
+    local_file = data_file.replace(current_loc, local_loc)
     
     if os.path.isfile(data_file):
         # Try for the data file (with potential user-supplied path)
         return data_file
-    elif os.path.isfile(data_file.replace(current_loc, local_loc)):
+    elif os.path.isfile(local_file):
         # Fall back to the local version
-        return data_file.replace(current_loc, local_loc)
+        return local_file
 
     # This is a convenience. The exposure parameters file associated with a particular
     # python file is that file's name with ".py" replaced with ".yaml". For example, the 
@@ -200,17 +203,18 @@ def get_data_file(module, fname, subdir=None):
     if os.path.splitext(fname)[1] == ".py":
         fname = os.path.splitext(fname)[0] + ".yaml"
         data_file = os.path.join(data_path, fname)
+        local_file = data_file.replace(current_loc, local_loc)
     
         if os.path.isfile(data_file):
             # Try for the data file (with potential user-supplied path)
             return data_file
-        elif os.path.isfile(data_file.replace(current_loc, local_loc)):
+        elif os.path.isfile(local_file:
             # Fall back to the local version
-            return data_file.replace(current_loc, local_loc)
-    
-    msg = "ERROR: File {}.{} not found at {} or {}.\n"
-    msg = msg.format(module, fname, data_file, data_file.replace(current_loc, local_loc))
-    sys.stderr.write(msg)
+            return local_file
+
+    if not optional:
+        msg = f"ERROR: File {module}.{fname} not found at {data_file} or {local_file}.\n"
+        sys.stderr.write(msg)
 #     for i in range(5):
 #         data_file = os.path.dirname(data_file)
 #         search_str = os.path.join(data_file, "*")

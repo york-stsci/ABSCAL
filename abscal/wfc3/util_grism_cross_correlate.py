@@ -72,18 +72,19 @@ def cross_correlate(s1, s2, row, **kwargs):
     """
     verbose = kwargs.get('verbose', False)
     task = "cross_correlate"
+    base_name = os.path.basename(__file__)
     preamble = "{}: {}".format(task, row['root'][0])
 
     if verbose:
         print("{}: Starting WFC3 cross-correlation of GRISM data.".format(task))
 
     issues = {}
-    exposure_parameter_file = get_data_file("abscal.wfc3", os.path.basename(__file__))
+    exposure_parameter_file = get_data_file("abscal.wfc3", base_name, optional=True)
     if exposure_parameter_file is not None:
         with open(exposure_parameter_file, 'r') as inf:
             issues = yaml.safe_load(inf)
 
-    defaults = get_defaults("abscal.wfc3.util_grism_cross_correlate")
+    defaults = get_defaults(f"abscal.wfc3.{base_name.replace('.py', '')}")
     defaults['i2'] = len(s1) - 1
     params = set_params(defaults, row, issues, preamble, kwargs, verbose)
     approx = int(round(params['ishift']))
