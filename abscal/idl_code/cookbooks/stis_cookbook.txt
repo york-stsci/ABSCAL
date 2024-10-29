@@ -1,0 +1,212 @@
+COOKBOOK FOR STIS FLUX CALIBRATION
+----------------------------------
+
+Before trying to run any of these IDL procedures in ~/stiscal be sure your IDL
+path reflects the following order, as there are a few conflicting procedures
+with the same name in the IDL Astronomy Library.
+
+/Users/bohlin/nidl:/Users/bohlin/stisidl/stispro: 
+
+There are a lot of routines provided by Don Lindler and the STIS IDT.
+
+The main use of these programs is for flux calibration of the STIS low
+dispersion modes, though there are some older echelle routines. There is an
+experts' summary of the low dispersion procedures in the header of
+make-tchang.pro, which is elaborated a bit below.
+
+ Procedure
+ ---------
+ 
+The STIS IDL code is largely driven by dir*.log files, e.g. dir2009.log
+contains the recent calibration data since 2009. When the directory of data
+(~/data/spec/2009) is updated, run stisdir.pro, compare the output to
+dir2009-cf.log, and add anything new  'by hand' to dir2009.log, so as not to
+disturb the extensive comments in dir2009.log. Copy the temporary
+stisdir.pro output to dir2009-cf.log. Then, reduce the data and update the
+documentation, as follows:
+ 
+0. Update new bias & dark files, & hot px stuff, as described in
+	~/stis/doc/hot.pixel.
+1. update dirlow.full with new lines from:
+	stisdir,'../data/spec/2009/o*raw.fits', i.e. entries for important for
+	stars must be entered in both dirlow.full and dir2009.log.
+2. reduce data w/ preproc.pro. For new CCD data, activate the line
+	; noskyadjust=nosky,mult_noise=mulnoise,/displ and identify cases where
+	too many pixels are rejected and the stis_cr.pro parameter must be
+	relaxed in a line like: 
+	if strpos(fils(ifil),'oehj01060') ge 0 then mulnoise=.05  ;AGK g750l
+2a. .run mrgall (agk & grw only, if no big change to ttcorr)
+3. Run make-tchang for new time change coef from GRW and AGK only.
+	Modify ttcorr.pro (changes only w/new data, new WLs, & new CTI corr)
+4. run tcorrel to get 4 new temp coef for ttcorr.pro & .r ttcorr
+5. iterate to 2a. to get conv. on temp change. Converging to 1e-5=0.001%-OK.
+6. run NOWAVCAL (ALL dir) & enter wavelength (WL) shifts in stiswlfix.pro
+7. run WLCK.pro & fix 3 primary standard star WLs in stiswlfix & iter to 2. 
+8. .r lowsensav, if any new obs of cal stars: 3 prime WDs, GRW or AGK
+9. run lowchang & Update sens* files in ~/stisidl/scal.
+	( --> Update sens11_g*.fits and NOT sens_g*)
+10. make new MRGALL avgs. w/ new change coef, new data, (new iterat sens)
+10b.iterate to step 3 to be sure there is no
+	need to iterate again. Converge to 2e-5=0.002%-OK. 
+11. run modcf.pro - 3 prime std for sanity ck.
+12. run primchang.pro to see if Vega or any of the 3 prime WDs
+	change at 5556A: 
+	If Vega or 3 WD Net changes, run ~/wd/newmakstd & make_mod_calspec
+	(*** Kurucz Vega mod is norm to 3.47e-9 at 5556A and does NOT change!)
+13. .r xcal
+14. ck for required CALSPEC updates w/ ~/nidl/newoldcf.pro.
+
+--> Lines that might need to be changed in programs before running are flagged
+	with ; ###change.
+
+
+There are more details of some of the finer points in ~/stis/doc and see the
+following papers.
+
+  PUBLICATIONS:
+  -------------
+"White Dwarf Standard Stars: G191B2B, GD71, Gd153, HZ43", R. C. Bohlin, L.
+Colina, & D. S. Finley 1995, AJ, 110, 1316.
+
+"Spectrophotometric Standards from the Far-UV to the Near-IR on the White
+Dwarf Flux Scale," R. C. Bohlin 1996, AJ, 111, 1743.
+
+"STIS Signal-to-Noise Capabilities in the Ultraviolet," Kaiser, M.E., Bohlin, R.
+C., Lindler, D. J., Gilliland, R. L., Argabright, V. S., & Kimble, R. A. 1998,
+PASP, 110, 978. 
+
+"COMPARISON OF WHITE DWARF MODELS WITH STIS SPECTROPHOTOMETRY", 
+Bohlin, R. C. 2000, AJ, 120, 437
+
+Bohlin, R. C., Dickinson, M. E., and Calzetti, D. 2001, AJ, 122, 2118,
+"SPECTROPHOTOMETRIC STANDARDS FROM THE FAR-UV TO THE NEAR-IR: STIS AND NICMOS 
+FLUXES".
+
+Goudfrooij, P., Bohlin, R., Maiz-Apellaniz, J., & Kimble, R. 2006, PASP,
+118,1455, Empirical Corrections for Charge Transfer Inefficiency and 
+Associated Centroid Shifts for STIS CCD Observations
+
+Bohlin, R. C. 2007, in ASP Conf. Ser. 364, The Future of Photometric,
+Spectrophotometric, and Polarimetric Standardization, ed. C. Sterken (San
+Francisco: Astronomical Society of the Pacific), 315, "HST Stellar Standards
+with 1% Accuracy in Absolute Flux"; also Astro-Ph 0608715
+
+Bohlin, R. C. 2014, AJ, 147, 127  
+HUBBLE SPACE TELESCOPE CALSPEC FLUX STANDARDS: SIRIUS (AND VEGA)
+
+Bohlin, R. C., Gordon, K.D., & Tremblay, P.-E. 2014, PASP, 126, 711
+Techniques and Review of Absolute Flux Calibration from the Ultraviolet to the
+Mid-Infrared 
+
+Bohlin, R. C., Deustua, S. E., and de Rosa, G. 2019, AJ, 158, 211,
+HST Flux Calibration: I. STIS and CALSPEC
+
+Bohlin, R. C., Hubeny, Ivan, & Rauch, Thomas 2020, AJ, 160, 21
+New Grids of Pure-Hydrogen White-Dwarf NLTE Model Atmospheres and the HST/STIS
+Flux Calibration
+
+Bohlin, R. C. 2020,  Astronomy in Focus XXX, presented at IAU XXX General
+    Assembly, Vienna, Austria. Proceedings of the IAU, pp. 449-453
+"CALSPEC: HST Spectrophotometric Standards at 0.115 to 32 microns
+	with a 1\% Accuracy Goal"
+	
+------------------------------	
+
+On-Orbit Flat Fields and Absolute Calibration of STIS, Bohlin, R., Lindler, D.,
+& Baum S. 1996, Instrument Science Report, STIS 96-015, (Baltimore:STScI).
+
+STIS: Hi-res or Lo-Res MAMA Operations, R. Bohlin, D. Lindler, R. Kutina, C. 
+Joseph, & S. Baum 96Jul, Instrument Science Report STIS-025. 
+
+PRE-LAUNCH NUV MAMA FLATS, Bohlin, R. C., Lindler, D. J., & Kaiser, M. E.  1997,
+Instrument Science Report, STIS 97-07, (Baltimore:STScI). 
+
+PHILOSOPHY AND UPPER LIMITS TO THE HEIGHT OF THE ARTIFICIAL EXTRACTION SLITS,
+R. Bohlin, & G. Hartig 97Jun, Technical Instrument Report STIS 97-12.
+
+EXTRACTION SLITS FOR FIRST-ORDER STIS SPECTRA, 
+Leitherer, C. & Bohlin, R. 1997, Instrument Science Report, STIS 97-13,
+(Baltimore:STScI). 
+
+ABSOLUTE FLUX CALIBRATION FOR STIS FIRST-ORDER, LOW-RESOLUTION MODES, 
+Bohlin, R., Collins, N., & Gonnella, A. 1998, Instrument Science Report, STIS
+97-14, (Baltimore:STScI). 
+
+DIFFUSE SOURCE ABSOLUTE SENSITIVITY AND POINT SOURCE RELATIVE SENSITIVITY AS A
+FUNCTION OF EXTRACTION SLIT HEIGHT FOR STIS FIRST-ORDER MODES,
+Bohlin, R. 1998, Instrument Science Report, STIS 98-01, (Baltimore:STScI).
+
+EXTRACTION HEIGHTS FOR STIS ECHELLE SPECTRA, Leitherer, C., and Bohlin, R. 1998,
+Instrument Science Report, STIS 98-09, (Baltimore:STScI). 
+
+ABSOLUTE FLUX CALIBRATION FOR PRIME STIS ECHELLE MODES WITH THE 0.2X0.2" SLIT,
+Bohlin, R. 1998, Instrument Science Report, STIS 98-18, (Baltimore:STScI).
+
+STIS NEAR-IR FRINGING. II. BASICS AND USE OF CONTEMPORANEOUS FLATS FOR 
+SPECTROSCOPY OF POINT SOURCES, Goudfrooij, P., Bohlin, R., Walsh, J., & Baum, S.
+1998, Instrument Science Report, STIS 98-19, (Baltimore:STScI).
+
+CLEAR APERTURE FRACTIONAL TRANSMISSION FOR POINT SOURCES, Ralph Bohlin &
+George Hartig 1998, Instrument Science Report, STIS 98-20, (Baltimore:STScI).
+
+ECHELLE NEUTRAL DENSITY SLIT THROUGHPUTS, Leitherer, C., Bohlin, R., & Plait, P.
+1998, Instrument Science Report, STIS 98-25, (Baltimore:STScI).
+
+SENSITIVITY MONITOR REPORT FOR THE STIS FIRST-ORDER MODES, Nolan R. Walborn &
+Ralph C. Bohlin, Instrument Science Report, STIS 98-27, (Baltimore:STScI).
+
+Dust Motes and Blemishes in the CCD Spectral Modes, Bohlin, R. 1999, Instrument
+Science Report, STIS 99-04, (Baltimore:STScI). 
+
+Flat Fields for the CCD Spectral Modes, Bohlin, R. 1999, Instrument Science
+Report, STIS 99-06, (Baltimore:STScI). 
+
+Changes in Sensitivity of the Low Dispersion Modes, Bohlin, R. 1999,Instrument
+Science Report, STIS 99-07, (Baltimore:STScI). 
+
+Sensitivity Monitor Report for the STIS First-Order Modes - II,  Smith, E.,
+Stys, D., Walborn, N., and Bohlin, R. 2000, Instrument Science Report, STIS
+00-03, (Baltimore:STScI). 
+
+STIS Flux Calibration, Bohlin, R. 2003, 2002 HST Calibration Workshop,
+ed. S. Arribas, A. Koekemoer, and B. Whitmore, (Baltimore:STScI), p. 115
+
+AN ALGORITHM FOR CORRECTING CTE LOSS IN SPECTROPHOTOMETRY OF POINT SOURCES
+WITH THE STIS CCD, Bohlin, R. & Goudfrooij P. 2003, Instrument Science Report,
+STIS 03-03R, (Baltimore:STScI)
+
+Time Dependent Sensitivity of the CCD and MAMA First Order Modes, Stys, D. J.,
+Bohlin, R. C. & Goudfrooij, P. 2004, Instrument Science Report, STIS 2004-04,
+(Baltimore:STScI)
+
+A New Flux Calibration for the STIS objective Prism, Maiz-Apelaniz, J., &
+Bohlin, R. C. 2005, Instrument Science Report, STIS 2005-01, (Baltimore:STScI)
+
+A New CTE Correction Algorithm for Point Source Spectroscopy with the STIS CCD,
+Goudfrooij, P., & Bohlin, R. C. 2006, Instrument Science Report, STIS 2006-03,
+(Baltimore:STScI)
+
+New On-Orbit Sensitivity Calibration for All STIS Echelle Modes, Aloisi, A., 
+Bohlin, R., & Quijano, J. K. 2007, Instrument Science Report, STIS 2007-01,
+(Baltimore:STScI)
+
+Time Dependent Trace Angles for the STIS First Order Modes, Dressel, L., Bohlin,
+R., Lindler, D., & Holfeltz, S. 2007, Instrument Science Report, STIS 2007-03,
+(Baltimore:STScI)
+
+STIS CCD Performance after SM4:  Read Noise, Dark Current, Hot Pixel Annealing,
+CTE, Gain, and  Spectroscopic Sensitivity, Goudfrooij, P., Wolfe, M. A., Bohlin,
+R. C., Proffitt, C. R., & Lennon, D. J. 2009, Instrument Science Report, STIS
+2009-02, (Baltimore:STScI)
+
+Post-SM4 Flux Calibration of the STIS Echelle Modes, Boestroem, K. A., A.
+Aloisi, R.C. Bohlin, Proffitt, C., R. Osten, & Lennon, D. 2010, HST Calibration
+Workshop Space Telescope Science Institute, 2010, Susana Deustua and Cristina
+Oliveira, eds. 
+
+Post-SM4 Sensitivity Calibration of the STIS Echelle Modes, Bostroem, K. A.,
+Aloisi, A., Bohlin, R., Hodge, P., & Proffitt, C. 2012, Instrument Science
+Report, STIS 2012-01, (Baltimore:STScI)
+
+Bohlin, R., C. & Proffitt, C. R. 2015, Instrument Science Report, STIS 2015-01,
+(Baltimore:STScI) IMPROVED PHOTOMETRY FOR G750L
