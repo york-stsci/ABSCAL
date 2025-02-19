@@ -1245,7 +1245,71 @@ def get_param_types(task, module, verbose):
     return param_types
 
 
-def setup_params(task, module, metadata, row, verbose):
+def get_task_defaults(task, module, verbose=False):
+    """
+    Given a task name, create a dictionary that holds the default parameter set for
+    running that task, as well as type and history information.
+    
+    Parameters
+    ----------
+    task : str
+        Task name
+    module : str
+        Abscal module
+    verbose : bool, default False
+        Whether to print verbose output
+    
+    Returns
+    -------
+    task_params : dict
+        The set parameter dictionary
+    """
+    task_params = {}
+    task_file = get_data_file(module, "tasks.yaml")
+    if task_file is not None:
+        with open(task_file) as in_file:
+            task_dict = yaml.safe_load(in_file)
+        if task in task_dict:
+            task_params = task_dict[task]
+
+    return task_params
+
+
+def get_default_params(task, module, verbose=False):
+    """
+    Given a task name, create a dictionary that holds the default parameter values for
+    that task.
+
+    Parameters
+    ----------
+    task : str
+        Task name
+    module : str
+        Abscal module
+    verbose : bool, default False
+        Whether to print verbose output
+    
+    Returns
+    -------
+    params : dict
+        The set parameter dictionary
+    """
+    params = {}
+    param_types = get_param_types(task, module, verbose)
+    task_params = get_task_defaults(task, module, verbose=verbose)
+    
+    for item in task_params:
+        default = task_params[item]["value"]
+        if "none" in task_params[item]["type"] and default == "None":
+            default = None
+        if "string" in param_types[item]:
+            default = f"{default}"
+        params[item] = default
+
+    return params    
+
+
+def setup_params(task, module, metadata, row, verbose=False):
     """
     Given a task name, create a dictionary that uses the current exposure of interest to 
     populate a dictionary of parameter values, then return that dictionary
@@ -1260,7 +1324,7 @@ def setup_params(task, module, metadata, row, verbose):
         Data file to search for exposure-specific settings
     row : ABSCAL.ExposureDataTable row
         Row of information on the current exposure
-    verbose : bool
+    verbose : bool, default False
         Whether to print verbose output
     
     Returns
@@ -1269,14 +1333,8 @@ def setup_params(task, module, metadata, row, verbose):
         The set parameter dictionary
     """
     params = {}
-    task_params = {}
     param_types = get_param_types(task, module, verbose)
-    task_file = get_data_file(module, "tasks.yaml")
-    if task_file is not None:
-        with open(task_file) as in_file:
-            task_dict = yaml.safe_load(in_file)
-        if task in task_dict:
-            task_params = task_dict[task]
+    task_params = get_task_defaults(task, module, verbose=verbose)
     
     for item in task_params:
         default = task_params[item]["value"]
@@ -1284,6 +1342,38 @@ def setup_params(task, module, metadata, row, verbose):
             default = None
         params[item] = initialize_value(item, metadata, row, default, verbose)
         if "string" in param_types[item]:
-            params[item] = "{}".format(params[item])
+            params[item] = f"{params[item]}"
 
     return params
+
+def update_param(task, module, row, settings_file, param, value, name, notes, update_type):
+    """
+    Update a parameter for a task. The update_type can be "default", to update the overall
+    default, "current" to update the task version for this particular file, or "revert" to
+    do nothing.
+    """
+    if update_type == "current":
+        yaml = YAML()
+        with open(settings_file) as inf:
+            config = yaml.load(inf)
+        set_override(param, config, row, name, value, notes)
+        with open(file, mode="w") as outf:
+            yaml.dump(config, outf)
+    elif update_type == "default":
+        task_file = get_data_file(module, "tasks.yaml")
+        if task_file is not None:
+            yaml = YAML()
+            with open(task_file) as inf:
+                config = yaml.load(inf)
+            update_dict = {
+                "value": deepcopy(config[param]["value"]),
+                "date": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                "name": name,
+                "reason": notes
+            }
+            update_history = [update_dict] + deepcopy(config[param]["history"])
+            config["value"] = value
+            config["name"] = name
+            config["reason"] = notes
+            with open(file, mode="w") as outf:
+                yaml.dump(config, outf)

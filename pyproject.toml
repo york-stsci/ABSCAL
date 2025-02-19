@@ -1,0 +1,80 @@
+[project]
+name = "ABSCAL"
+description = "STIS and WFC3 calibration software converted from Ralph Bohlin's IDL code."
+readme = "README.rst"
+authors = [
+  { name = "Brian York", email = 'york@stsci.edu' },
+  { name = "Ralph Bohlin", email = 'bohlin@stsci.edu' },
+  { name = "Susana Deustua", email = 'susana.deustua@nist.gov' },
+  { name = "Karl Gordon", email = 'kgordon@stsci.edu' },
+]
+keywords = ["astronomy", "python"]
+classifiers = ["Programming Language :: Python"]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy<2.0.0",
+    "astropy",
+    "astroquery",
+    "crds",
+    "matplotlib",
+    "scipy",
+    "photutils",
+    "rebin",
+    "stistools",
+    "ruamel.yaml",
+    "simpleeval",
+    "ipympl",
+    "pyyaml"
+]
+
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+]  
+docs = [
+  "sphinx",
+  "sphinx_rtd_theme",
+  "stsci_rtd_theme",
+  "nbsphinx"
+]
+
+[project.license]
+file = "LICENSE"
+content-type = "text/plain"
+
+[build-system]
+requires = ["setuptools >= 61.2",
+            "setuptools_scm[toml]>=7.1"]
+build-backend = 'setuptools.build_meta'
+
+[project.urls]
+Homepage = "https://github.com/spacetelescope/ABSCAL"
+Documentation = "https://abscal.readthedocs.io/en/latest/"
+Repository = "https://github.com/spacetelescope/ABSCAL.git"
+Issues = "https://github.com/spacetelescope/ABSCAL/issues"
+# Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+[project.scripts]
+download_mast = "abscal.common.mast:main"
+wfc3_setup = "abscal.wfc3.preprocess_table_create:main"
+wfcdir = "abscal.wfc3.preprocess_table_create:main"
+wfc3_wave = "abscal.wfc3.reduce_grism_wavelength:main"
+wlmake = "abscal.wfc3.reduce_grism_wavelength:main"
+wlmeas = "abscal.wfc3.reduce_grism_wavelength:main"
+wfc3_coadd = "abscal.wfc3.reduce_grism_coadd:main"
+prewfc = "abscal.wfc3.reduce_grism_coadd:main"
+wfc3_all = "abscal.commands.wfc3_all:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.setuptools_scm]
+
+[tool.pytest]
+junit_family = "xunit2"

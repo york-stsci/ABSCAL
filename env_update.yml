@@ -20,26 +20,14 @@ name: abscal
 
 channels:
   - conda-forge
-  - astropy
-  - defaults
 
 dependencies:
   # Base dependencies
   - pip
-  - python>=3.9 # because abscal uses dictionary merging.
+  - python>=3.10
 
   - pip:
     # Major modules
-    - ipympl
-    - nbsphinx
-    - PySimpleGUI
-    - rebin
-    - ruamel.yaml
-    - simpleeval
-    - sphinx_autoapi
-    - sphinx_rtd_theme
-    - stsci_rtd_theme
-    - tox
     - -e .
 
 variables:

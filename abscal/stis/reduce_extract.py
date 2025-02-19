@@ -55,15 +55,17 @@ from copy import deepcopy
 from crds import assign_bestrefs
 from distutils.util import strtobool
 from datetime import datetime
+from functools import partial
 import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 from pathlib import Path
-import PySimpleGUI as sg
 from scipy.signal import find_peaks_cwt
 import shutil
+import tkinter as tk
+from tkinter import ttk
 import traceback
 import yaml
 
@@ -76,11 +78,12 @@ from stistools.defringe import mkfringeflat
 from stistools.defringe import normspflat
 
 from abscal.common.args import parse
-from abscal.common.ui import handle_parameter_window
-from abscal.common.ui import ImageWindow
-from abscal.common.ui import run_task
+from abscal.common.ui import AbscalFrame
+from abscal.common.ui import AbscalTask
+from abscal.common.ui import ImageFrame
+from abscal.common.ui import SpectrumFrame
 from abscal.common.ui import SpectrumWindow
-from abscal.common.ui import TaskWindow
+from abscal.common.ui import TaskFrame
 from abscal.common.ui import TwoColumnWindow
 from abscal.common.utils import check_params
 from abscal.common.utils import get_value
@@ -136,9 +139,9 @@ def make_hot_pixel_list(dark_file, threshold):
     return hot_list
 
 
-class ExtractionInfoWindow(ImageWindow):
+class ExtractionInfoFrame(ImageFrame):
     """
-    This is a version of the ImageWindow that also plots the extraction region and the 
+    This is a version of the ImageFrame that also plots the extraction region and the 
     background regions.
     """
     def set_up_config(self, kwargs):
@@ -193,9 +196,34 @@ class ExtractionInfoWindow(ImageWindow):
         super().update_figure(**kwargs)
 
 
-class CosmicRayWindow(TwoColumnWindow):
+class CosmicRayTraceFrame(AbscalFrame):
+    def __init__(self, parent, visibility_callback, starting_value, *args, **kwargs):
+        self.visibility_callback = visibility_callback
+        self.starting_value = starting_value
+        super().__init__(parent, "Spectral Trace", *args, **kwargs)
+
+    def layout_frame(self):
+        self.trace_var = tk.BooleanVar(master=self, value=self.starting_value)
+        b = ttk.Checkbutton(
+            self,
+            text="Display Approximate Trace",
+            variable=self.trace_var,
+            onvalue=True,
+            offvalue=False,
+            command=partial(self.handle_ui_event, "visibility")
+        )
+        b.grid(row=0, column=0, sticky="news")
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_columnconfigure(0, weight=0)
+
+    def handle_ui_event(self, event):
+        if event == "visibility":
+            self.visibility_callback(self.trace_var.get())
+
+
+class CosmicRayFrame(ImageFrame):
     """
-    This is a version of the ImageWindow that includes a function to get the approximate
+    This is a version of the ImageFrame that includes a function to get the approximate
     spectrum location (based on doing a collapse of the image along the spectral direction),
     and offering the option of showing the (approximate) extraction region on the image of
     cosmic ray flags, to offer the option of a guide for seeing whether the cosmic ray 
@@ -204,34 +232,34 @@ class CosmicRayWindow(TwoColumnWindow):
     def set_up_config(self, kwargs):
         self.extrsize = self.handle_kwarg('extrsize', 11., kwargs)
         self.trace_file = self.handle_kwarg('trace_file', None, kwargs)
+        self.extraction_file = self.handle_kwarg('extraction_file', None, kwargs)
+        self.show_trace = self.handle_kwarg('trace_visible', True, kwargs)
         return super().set_up_config(kwargs)
     
-    def make_ui_column(self):
-        trace_check = sg.Checkbox("Show Approximate Spectral Trace", default=True,
-                                  text_color="red", key="trace", enable_events=True,
-                                  background_color="white")
-        trace_frame = sg.Frame("Trace:", [[trace_check]], background_color="white",
-                               title_color="black", expand_y=True)
-        trace_col = sg.Column([[trace_frame]], expand_y=True)
-        return trace_col
-    
     def get_trace_data(self):
-        peaks = self.get_approximate_peak()
         y_vals = []
-        if len(peaks) == 0:
-            print("{}: WARNING: no spectral trace found".format(self.data_file))
-            return y_vals
-        if len(peaks) > 1:
-            print("{}: WARNING: multiple possible traces found".format(self.data_file))
-        for peak in peaks:
-            y_vals.append(peak-self.extrsize/2)
-            y_vals.append(peak+self.extrsize/2)
+        if (self.extraction_file is not None) and (self.extraction_file.is_file()):
+            with fits.open(self.extraction_file) as x1df:
+                spec_loc = x1df[1].data['EXTRLOCY'][0]
+                y_vals.append(spec_loc - x1df[1].data["EXTRSIZE"][0]//2)
+                y_vals.append(spec_loc + x1df[1].data["EXTRSIZE"][0]//2)
+        else:
+            peaks = self.get_approximate_peak()
+            if len(peaks) == 0:
+                print("{}: WARNING: no spectral trace found".format(self.data_file))
+                return y_vals
+            if len(peaks) > 1:
+                print("{}: WARNING: multiple possible traces found".format(self.data_file))
+            for peak in peaks:
+                y_vals.append(np.array([peak-self.extrsize//2 for x in range(self.x_size)]))
+                y_vals.append(np.array([peak+self.extrsize//2 for x in range(self.x_size)]))
         return y_vals
     
-    def get_image_data(self):
+    def get_figure_data(self):
         cr_flag_value = 8192
         with fits.open(self.data_file) as dat:
             cr_flag_dat = np.zeros_like(dat["DQ"].data, dtype=np.int32)
+            self.x_size = cr_flag_dat.shape[1]
             for ext in dat:
                 if dat[ext].name == 'DQ':
                     cr_flag_dat += np.where(dat[ext].data & cr_flag_value != 0, 1, 0)
@@ -239,16 +267,19 @@ class CosmicRayWindow(TwoColumnWindow):
     
     def create_figure(self):
         figure = super().create_figure()
+        xax = np.arange(self.x_size)
         ax = figure.axes[0]
         self.lines = []
         for value in self.get_trace_data():
-            self.lines.append(ax.axhline(value, color="red", linestyle='dotted'))
+            line, = ax.plot(xax, value, color="red", linestyle='dotted')
+            self.lines.append(line)
+            self.lines[-1].set_visible(self.show_trace)
         return figure
 
     def update_figure(self, **kwargs):
         update_data = kwargs.get("update_data", True)
         for line in self.lines:
-            line.set_visible(self['trace'].Get())
+            line.set_visible(self.show_trace)
         if update_data:
             y_vals = self.get_trace_data()
             for line, val in zip(self.lines, y_vals):
@@ -272,26 +303,59 @@ class CosmicRayWindow(TwoColumnWindow):
             peaks = find_peaks_cwt(dat, [10])
         return peaks
 
+    def toggle_trace(self, show_trace):
+        self.show_trace = show_trace
+        self.update_figure(update_data=False)
 
-class CosmicRayTaskWindow(TaskWindow):
+
+class CosmicRayWindow(TwoColumnWindow):
+    def setup_ui(self, frame_class, frame_args, frame_kwargs):
+        figure_frame = frame_class(self, *frame_args, **frame_kwargs)
+        trace_frame = CosmicRayTraceFrame(
+            self,
+            figure_frame.toggle_trace,
+            figure_frame.show_trace
+        )
+        super().setup_ui(trace_frame, figure_frame)
+        self.grid_columnconfigure(0, weight=0)
+
+
+class CosmicRayTaskFrame(TaskFrame):
     """
-    Modified version of the TaskWindow that adds in buttons for tweaking up and down
+    Modified version of the TaskFrame that adds in buttons for tweaking up and down
     the scalense parameter.
     """
-    def add_to_layout(self, layout):
-        layout.append([sg.Button('Flag More CRs'), sg.Push(), sg.Button('Flag Fewer CRs')])
-        return layout
+    def add_to_layout(self, current_row):
+        b = ttk.Button(
+            self,
+            text="Flag Fewer CRs",
+            command=partial(self.handle_ui_event, "flag_fewer")
+        )
+        b.grid(row=current_row, column=0, sticky="news")
+        b = ttk.Button(
+            self,
+            text="Flag More CRs",
+            command=partial(self.handle_ui_event, "flag_more")
+        )
+        b.grid(row=current_row, column=2, sticky="news")
+        self.grid_rowconfigure(current_row, weight=0)
+        current_row += 1
+        return current_row
     
-    def handle_ui_event(self, event, values):
-        if event == "Flag More CRs":
-            self.params["scalense"] = "{}".format(float(self.params["scalense"]) - 1.)
-            self["scalense"].Update(self.params["scalense"])
-            return True
-        elif event == "Flag Fewer CRs":
-            self.params["scalense"] = "{}".format(float(self.params["scalense"]) + 1.)
-            self["scalense"].Update(self.params["scalense"])
-            return True
-        return super().handle_ui_event(event, values)
+    def handle_ui_event(self, event):
+        if event == "flag_more":
+            scalense = float(self.params["scalense"])
+            scalense -= 1
+            self.params["scalense"] = f"{scalense}"
+            self.param_variables["scalense"].set(self.params["scalense"])
+            return super().handle_ui_event("run")
+        elif event == "flag_fewer":
+            scalense = float(self.params["scalense"])
+            scalense += 1
+            self.params["scalense"] = f"{scalense}"
+            self.param_variables["scalense"].set(self.params["scalense"])
+            return super().handle_ui_event("run")
+        return super().handle_ui_event(event)
 
 
 def reduce_flatfield(input_row, **kwargs):
@@ -409,31 +473,54 @@ def reduce_flatfield(input_row, **kwargs):
         
         with fits.open(interim_file, mode="update") as exposure:
             exposure[0].header['HISTORY'] = "ABSCAL: Finished running basic2d first pass"
-        
+
         # Set up and run the cosmic ray rejection task
-        figure_windows = []
+        task_info = {
+            "name": "ocrreject",
+            "function": ocrreject.ocrreject,
+            "frame_class": CosmicRayTaskFrame,
+            "metadata": setting_file,
+            "start_file": interim_file,
+            "end_file": crj_file,
+            "output_is_param": False
+        }
+
         standard_kwargs = {"do_log": True, "draw_toolbar": True}
-        figure_windows.append({"title": "{}: Before Cosmic Ray Removal".format(exp_info),
-                               "static": True,
-                               "data_file": interim_file,
-                               "kwargs": standard_kwargs})
-        figure_windows.append({"title": "{}: After Cosmic Ray Removal".format(exp_info),
-                               "data_file": "working",
-                               "kwargs": standard_kwargs})
         x1d_params = setup_params("x1d", "stis", settings, input_row, verbose)
         cr_kwargs = {"draw_toolbar": True, "extrsize": x1d_params['extrsize'], "trace_file": "working"}
-        figure_windows.append({"title": "{}: Cosmic Ray Flags".format(exp_info),
-                               "window_class": CosmicRayWindow,
-                               "data_file": interim_file,
-                               "kwargs": cr_kwargs})
 
-        try:
-            run_task("stis", "ocrreject", setting_file, input_row, ocrreject.ocrreject, 
-                     interim_file, crj_file, verbose=verbose, figure_windows=figure_windows, 
-                     task_window_class=CosmicRayTaskWindow, output_is_param=False)
-        except Exception as e:
-            print("{}: ERROR: {}".format(preamble, e))
-            return None
+        figure_windows = {}
+        figure_windows["before"] = {
+            "title": f"{exp_info}: Before Cosmic Ray Removal",
+            "frame_class": ImageFrame,
+            "data_file": interim_file,
+            "frame_args": [],
+            "frame_kwargs": standard_kwargs
+        }
+        figure_windows["after"] = {
+            "title": f"{exp_info}: After Cosmic Ray Removal",
+            "frame_class": ImageFrame,
+            "data_file": "working",
+            "frame_args": [],
+            "frame_kwargs": standard_kwargs
+        }
+        figure_windows["flags"] = {
+            "title": f"{exp_info}: Cosmic Ray Flags",
+            "window_class": CosmicRayWindow,
+            "frame_class": CosmicRayFrame,
+            "data_file": interim_file,
+            "frame_args": [],
+            "frame_kwargs": cr_kwargs
+        }
+
+        cr_app = AbscalTask(
+            "stis",
+            task_info,
+            input_row,
+            figure_windows,
+            verbose
+        )
+        cr_app.mainloop()
         
         # Intermediate pass for G750L: defringing
         if mode == "G750L" and "fringe" in kwargs and kwargs["fringe"] is not None:
@@ -599,25 +686,45 @@ def reduce_extract(input_row, **kwargs):
     #   - "algorithm":  as "bktilt" but XTRACALG
     #   - "xoffset":    f[0].header["SHIFTA1"]
 
-    figure_windows = []
+    # Set up and run the extraction task
+    task_info = {
+        "name": "x1d",
+        "function": stis_extract.x1d,
+        "frame_class": TaskFrame,
+        "metadata": setting_file,
+        "start_file": flt_file,
+        "end_file": final_file,
+        "output_is_param": True
+    }
+
+
+    figure_windows = {}
     extr_kwargs = {"extraction_file": "working", "do_log": True, "draw_toolbar": True}
-    figure_windows.append({"title": "{}: Extraction Region".format(exp_info),
-                           "window_class": ExtractionInfoWindow,
-                           "data_file": flt_file,
-                           "kwargs": extr_kwargs})
+    figure_windows["region"] = {
+        "title": f"{exp_info}: Extraction Region",
+        "frame_class": ExtractionInfoFrame,
+        "data_file": flt_file,
+        "frame_args": [],
+        "frame_kwargs": extr_kwargs
+    }
     spec_kwargs = {"draw_toolbar": True, "plot_x": "wave"}
-    figure_windows.append({"title": "{}: Extracted".format(exp_info),
-                           "window_class": SpectrumWindow,
-                           "data_file": "working",
-                           "kwargs": spec_kwargs})
-    
-    try:
-        run_task("stis", "x1d", setting_file, input_row, stis_extract.x1d, flt_file,
-                 final_file, verbose=verbose, figure_windows=figure_windows, 
-                 output_is_param=True)
-    except Exception as e:
-        print("{}: ERROR: {}".format(preamble, e))
-        return None
+    figure_windows["extracted"] = {
+        "title": f"{exp_info}: Extracted Spectrum",
+        "window_class": SpectrumWindow,
+        "frame_class": SpectrumFrame,
+        "data_file": "working",
+        "frame_args": [],
+        "frame_kwargs": spec_kwargs
+    }
+
+    ext_app = AbscalTask(
+        "stis",
+        task_info,
+        input_row,
+        figure_windows,
+        verbose
+    )
+    ext_app.mainloop()
 
     if verbose:
         print("{}: finished".format(preamble))
@@ -702,7 +809,13 @@ def reduce(input_table, **kwargs):
             kwargs['fringe'] = None
             mask = (input_table['obset'] == row['obset']) & (input_table['target'] == 'TUNGSTEN')
             if len(input_table[mask]) > 0:
-                kwargs['fringe'] = input_table[mask][0]['filename']
+                found_flat = False
+                for row in input_table[mask]:
+                    if row['aperture'] == "0.3X0.09":
+                        kwargs['fringe'] = row['filename']
+                        found_flat = True
+                if not found_flat:
+                    kwargs['fringe'] = input_table[mask][0]['filename']
 
         # Don't extract if there's already an extracted version of
         #   the file present.

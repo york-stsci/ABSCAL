@@ -1,86 +1,243 @@
 # Parameter values and settings for the STIS reduction tasks
 #
-# Parameters should have two keys:
+# Parameters should have five keys:
 #   - type: string/float/bool/int/etc.
 #   - value: initialization value
+#   - date: either "N/A" for the initial default value, or the last change date
+#   - reason: either "initial" for the initial default value, or the reason for the last
+#             change
+#   - history: list of dictionary entries, each with:
+#       - value: value at that point
+#       - date: date the value was set to "value"
+#       - reason: reason applied to the change
 
 hpix:
     threshold:
         type: float
         value: 0.05
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: 0.05
+              date: "initial"
+              reason: "set to initial value"
 
 ocrreject:
     scalense:
         type: string
         value: "0."
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "0."
+              date: "initial"
+              reason: "set to initial value"
     initgues:
         type: string
         value: ""
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: ""
+              date: "initial"
+              reason: "set to initial value"
     skysub:
         type: string
         value: ""
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: ""
+              date: "initial"
+              reason: "set to initial value"
     crsigmas:
         type: string
         value: ""
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: ""
+              date: "initial"
+              reason: "set to initial value"
     crradius:
         type: float_or_none
         value: 0.
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: 0.
+              date: "initial"
+              reason: "set to initial value"
     crthresh:
         type: float_or_none
         value: 0.5
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: 0.5
+              date: "initial"
+              reason: "set to initial value"
     badinpdq: 
         type: int_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     crmask:
         type: str
         value: "yes"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "yes"
+              date: "initial"
+              reason: "set to initial value"
 
 x1d:
     sporder:
         type: int_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
     a2center:
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     maxsrch:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     globalx:
         type: bool
         value: False
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: False
+              date: "initial"
+              reason: "set to initial value"
     extrsize:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bk1size:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bk2size:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bk1offst:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bk2offst:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bktilt:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     backord:
         type: int_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     bksmode:
         type: string
         value: "median"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "median"
+              date: "initial"
+              reason: "set to initial value"
     bksorder:
         type: int
         value: 3
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: 3
+              date: "initial"
+              reason: "set to initial value"
     blazeshift:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
     algorithm:
         type: string
         value: "unweighted"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "unweighted"
+              date: "initial"
+              reason: "set to initial value"
     xoffset:
         type: float_or_none
         value: "None"
+        date: "N/A"
+        reason: "initial"
+        history:
+            - value: "None"
+              date: "initial"
+              reason: "set to initial value"
