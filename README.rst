@@ -24,17 +24,13 @@ quick cheat sheet on installing ABSCAL and compiling its documentation is provid
 
     cd ABSCAL
 
-2. Create and activate a new Conda environment named `abscal`::
+2. Use the `env_setup.py` script to set up the ABSCAL environment::
 
-    conda env create -f environment.yml
+    python env_setup.py
 
     conda activate abscal
 
-3. Install ABSCAL from the repository using pip::
-   
-    pip install .
-    
-4. Build the HTML documentation::
+4. Build the HTML documentation (this has not been tested recently)::
 
     cd docs
     
