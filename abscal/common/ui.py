@@ -94,7 +94,12 @@ class AbscalWindow(tk.Toplevel):
     def __init__(self, parent, cnf={}, **kwargs):
         self.parent = parent
         self.known_events = {}
+        self.win_title = "ABSCAL"
+        if "title" in kwargs:
+            self.win_title = kwargs["title"]
+            del kwargs["title"]
         super().__init__(parent, cnf, **kwargs)
+        self.title(self.win_title)
 
     def setup_ui(self):
         """
@@ -428,7 +433,7 @@ class SpectrumFrame(ImageFrame):
         update_data = kwargs.get("update_data", True)
         ax = self.figure.axes[0]
         if update_data:
-            spec_data = self.get_spec_data()
+            spec_data = self.get_figure_data()
             for dataset in ['GROSS', 'BACKGROUND', 'NET', 'ERROR', 'NET_ERROR', 'DQ']:
                 self.spec_lines[dataset].set_ydata(spec_data[dataset])
         self._set_line_visibility()
@@ -510,21 +515,24 @@ class TaskFrame(AbscalFrame):
     def layout_frame(self):
         current_row = 0
         for param in self.params:
+            param_val = self.params[param]
+            if param_val is None:
+                param_val = "None"
             if param in self.param_types:
                 type_str = self.param_types[param].replace("_", " ")
                 type_str = type_str.replace("none", "None")
                 label = ttk.Label(self, text=f"{param} ({type_str})")
                 label.grid(row=current_row, column=0, sticky="news")
                 if self.param_types[param] == "int":
-                    v = tk.IntVar(self, value=self.params[param])
+                    v = tk.IntVar(self, value=param_val)
                 elif self.param_types[param] == "float":
-                    v = tk.DoubleVar(self, value=self.params[param])
+                    v = tk.DoubleVar(self, value=param_val)
                 else:
-                    v = tk.StringVar(self, value=self.params[param])
+                    v = tk.StringVar(self, value=param_val)
             else:
                 label = ttk.Label(self, text=param)
                 label.grid(row=current_row, column=0, sticky="news")
-                v = tk.StringVar(self, value=self.params[param])
+                v = tk.StringVar(self, value=param_val)
             entry = ttk.Entry(self, textvariable=v)
             entry.grid(row=current_row, column=1, columnspan=2, sticky="news")
             self.grid_rowconfigure(current_row, weight=1)
@@ -795,7 +803,8 @@ class AbscalTask(AbscalRoot):
         #   - "Cancel" means quit
 
     def setup_task_window(self):
-        self.task_window = OneColumnWindow(self)
+        task_window_title = f"{self.task_name}: {self.row['root']}"
+        self.task_window = OneColumnWindow(self, title=task_window_title)
         self.task_window.setup_ui(
             self.task_frame_class,
             (self.task_name, self.module, self.task_meta, self.row, self.verbose),
@@ -900,7 +909,7 @@ class AbscalTask(AbscalRoot):
                 else:
                     data_file = window_info["data_file"]
                 frame_args = [window_name, data_file] + window_info["frame_args"]
-                window = window_class(self)
+                window = window_class(self, title=window_title)
                 window.setup_ui(frame_class, frame_args, frame_kwargs)
                 self.display_windows[window_name] = window
 
