@@ -59,6 +59,7 @@ from astropy.time import Time
 from copy import deepcopy
 
 from abscal.common.args import parse
+from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.standard_stars import find_star_by_name, find_closest_star
 from abscal.common.utils import absdate, get_data_file, get_defaults
 from abscal.stis.stis_data_table import STISDataTable
@@ -155,13 +156,11 @@ def populate_table(data_table=None, **kwargs):
     task = "create_table"
 
     for path in paths:
-        if verbose:
-            print("{}: searching {}...".format(task, path))
+        logger.debug("{}: searching {}...".format(task, path))
         all_files = glob.glob(os.path.join(path, file_template))
         
         for file_name in all_files:
-            if verbose:
-                print("{}: adding {}".format(task, file_name))
+            logger.debug("{}: adding {}".format(task, file_name))
             loc = "START"
             file_metadata = {}
 
@@ -239,7 +238,7 @@ def populate_table(data_table=None, **kwargs):
                                         file_metadata['postarg'] = '+3pos'
                             else:
                                 msg = "{}: {}: WARNING: spt file not found"
-                                print(msg.format(task, root))
+                                logger.warning(msg.format(task, root))
                                 msg = "G140L x1d file with no postarg information."
                                 file_metadata['notes'] += msg
                     
@@ -275,13 +274,12 @@ def populate_table(data_table=None, **kwargs):
                     corrected_dec = epoch_dec + delta_dec/3600.
                     new_ra = (corrected_ra, 'Updated for PM by ABSCAL')
                     new_dec = (corrected_dec, 'Updated for PM by ABSCAL')
-                    if verbose:
-                        msg = "{}: {}: Target Star: {}"
-                        print(msg.format(task, root, file_metadata['target']))
-                        print("\tEpoch RA,DEC = {},{}".format(epoch_ra, epoch_dec))
-                        print("\tTime Since Epoch = {}".format(delta_from_epoch))
-                        print("\tDelta RA,DEC = {},{}".format(delta_ra, delta_dec))
-                        print("\tFinal RA,DEC = {},{}".format(corrected_ra, corrected_dec))
+                    msg = "{}: {}: Target Star: {}"
+                    logger.debug(msg.format(task, root, file_metadata['target']))
+                    logger.debug("\tEpoch RA,DEC = {},{}".format(epoch_ra, epoch_dec))
+                    logger.debug("\tTime Since Epoch = {}".format(delta_from_epoch))
+                    logger.debug("\tDelta RA,DEC = {},{}".format(delta_ra, delta_dec))
+                    logger.debug("\tFinal RA,DEC = {},{}".format(corrected_ra, corrected_dec))
                 else:
                     msg = file_metadata['target'] + " not a STIS standard star" 
                     new_target = (file_metadata['target'], msg)
@@ -297,10 +295,10 @@ def populate_table(data_table=None, **kwargs):
                 loc = "DONE"
                     
             except Exception as e:
-                print("{}: {}: ERROR: {} {}".format(task, file_name, e, loc))
+                logger.error("{}: {}: ERROR: {} {}".format(task, file_name, e, loc))
                 for key in data_table.columns:
                     if key not in file_metadata:
-                        print("\t{} missing".format(key))
+                        logger.error("\t{} missing".format(key))
                 msg = "ERROR: Exception {} while processing.".format(str(e))
                 file_metadata['notes'] += " {}".format(msg)
             

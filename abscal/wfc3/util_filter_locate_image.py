@@ -50,6 +50,7 @@ from copy import deepcopy
 from scipy.signal import medfilt2d
 
 from abscal.common.args import parse
+from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.utils import get_data_file, set_param
 
 
@@ -83,9 +84,8 @@ def locate_image(input_table, **kwargs):
     task = "locate_image"
     verbose = kwargs.get('verbose', False)
     show_plots = kwargs.get('show_plots', False)
-    if verbose:
-        msg = "{}: Starting WFC3 image location check for FILTER data."
-        print(msg.format(task))
+    msg = "{}: Starting WFC3 image location check for FILTER data."
+    logger.info(msg.format(task))
 
     issues = {}
     exposure_parameter_file = get_data_file("abscal.wfc3", os.path.basename(__file__))
@@ -100,8 +100,7 @@ def locate_image(input_table, **kwargs):
         preamble = "{}: {}".format(task, root)
         # Only locate filter data in the locate_image function.
         if row['use'] and row['filter'][0] == 'F':
-            if verbose:
-                print("{}: Locating image for {}".format(task, root))
+            logger.debug("{}: Locating image for {}".format(task, root))
             input_file = os.path.join(row['path'], row['filename'])
             crval1 = row['crval1']
             crval2 = row['crval2']
@@ -128,9 +127,8 @@ def locate_image(input_table, **kwargs):
                 targ = img_wcs.wcs_world2pix([ra], [dec], 0, ra_dec_order=True)
                 xastr, yastr = targ[0][0], targ[1][0]
                 xappr, yappr = int(round(xastr)), int(round(yastr))
-                if verbose:
-                    msg = "{}: {} has image astrometry position ({},{})"
-                    print(msg.format(task, root, xastr, yastr))
+                msg = "{}: {} has image astrometry position ({},{})"
+                logger.debug(msg.format(task, root, xastr, yastr))
                 if show_plots:
                     fig = plt.figure()
                     ax = fig.add_subplot(111)
@@ -148,9 +146,8 @@ def locate_image(input_table, **kwargs):
                     if (xappr <=3) or (xappr >= data.shape[1]-4):
                         row['xc'] = 0
                         row['yc'] = 0
-                        if verbose:
-                            msg = "{}: {}: target at edge. Set xc=yc=0."
-                            print(msg.format(task, root))
+                        msg = "{}: {}: target at edge. Set xc=yc=0."
+                        logger.debug(msg.format(task, root))
                         continue
                 
                 if xstar != 0 or ystar != 0:
@@ -163,10 +160,8 @@ def locate_image(input_table, **kwargs):
                 data[:max(yappr-35,0),:] = 0.
                 data[min(yappr+35,data.shape[0]-1):,:] = 0.
                 
-#                 print("Data Near Centre")
                 np_formatter = {'float_kind':lambda x: "{:10.4f}".format(x)}
                 np_opt = {'max_line_width': 175, 'formatter': np_formatter}
-#                 print(np.array2string(data[yappr-5:yappr+5,xappr-5:xappr+5], **np_opt))
                 
                 # Perform a median filter of the data.
                 med_data = medfilt2d(data, kernel_size=3)
@@ -176,37 +171,25 @@ def locate_image(input_table, **kwargs):
                 position = np.unravel_index(argmax, med_data.shape)
                 xpos, ypos = position[1], position[0]
                 
-#                 print("Max Position", xpos, ypos)
-                
                 x1 = max(xpos-10, 0)
                 x2 = min(x1+22, data.shape[1]-1)
                 y1 = max(ypos-10, 0)
                 y2 = min(y1+22, data.shape[0]-1)
                 
-#                 print("X, Y = [{}:{},{}:{}]".format(x1,x2,y1,y2))
-                
                 subimage = data[y1:y2,x1:x2]
                 # IDL code does not supply kernel size, but online documentation
                 #   does not seem to indicate what the default is.
-#                 print("Initial Subimage")
-#                 print(np.array2string(subimage, **np_opt))
                 subimage -= np.median(subimage)
                 subimage -= subimage.max()/5
                 subimage = np.where(subimage>=0., subimage, 0.)
-#                 print("Subimage")
-#                 print(np.array2string(subimage, **np_opt))
                 
                 x = np.arange(x1,x2)
                 xprofile = np.sum(subimage, axis=0)
-#                 print("Xprofile")
-#                 print(np.array2string(xprofile, **np_opt))
                 xc = np.sum(xprofile*x)/np.sum(xprofile)
                 xerr = xc - xastr
 
                 y = np.arange(y1, y2)
                 yprofile = np.sum(subimage, axis=1)
-#                 print("Yprofile")
-#                 print(np.array2string(yprofile, **np_opt))
                 yc = np.sum(yprofile*y)/np.sum(yprofile)
                 yerr = yc - yastr
 
@@ -224,13 +207,12 @@ def locate_image(input_table, **kwargs):
                 row['xerr'] = xerr
                 row['yerr'] = yerr
                 
-                if verbose:
-                    msg = "{}: {}: image position ({},{}) with error ({},{})"
-                    print(msg.format(task, root, xc, yc, xerr, yerr))
+                msg = "{}: {}: image position ({},{}) with error ({},{})"
+                logger.info(msg.format(task, root, xc, yc, xerr, yerr))
                 
-        elif verbose:
+        else:
             msg = "{}: Skipping {} because it's been set to don't use "
             msg += "(reason: {})."
-            print(msg.format(task, root, row['notes']))
+            logger.warning(msg.format(task, root, row['notes']))
     
     return input_table

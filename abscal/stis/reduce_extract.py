@@ -78,6 +78,7 @@ from stistools.defringe import mkfringeflat
 from stistools.defringe import normspflat
 
 from abscal.common.args import parse
+from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.ui import AbscalFrame
 from abscal.common.ui import AbscalTask
 from abscal.common.ui import ImageFrame
@@ -126,7 +127,7 @@ def make_hot_pixel_list(dark_file, threshold):
     if "oref$" in dark_file:
         dark_file = os.path.join(os.environ["oref"], dark_file.replace("oref$", ""))
     
-    print("Creating hot pixel list")
+    logger.info("Creating hot pixel list")
     with fits.open(dark_file) as dark:
         sci_ext = dark['SCI'].data
         hot_pixels = np.where(sci_ext>=threshold)
@@ -134,7 +135,7 @@ def make_hot_pixel_list(dark_file, threshold):
         y_list = hot_pixels[0]
         rate_list = sci_ext[hot_pixels]
         hot_list = [(x, y, r) for x, y, r in zip(x_list, y_list, rate_list)]
-        print("Found {} hot pixels".format(len(hot_list)))
+        logger.info("Found {} hot pixels".format(len(hot_list)))
 
     return hot_list
 
@@ -246,10 +247,10 @@ class CosmicRayFrame(ImageFrame):
         else:
             peaks = self.get_approximate_peak()
             if len(peaks) == 0:
-                print("{}: WARNING: no spectral trace found".format(self.data_file))
+                logger.warning("{}: WARNING: no spectral trace found".format(self.data_file))
                 return y_vals
             if len(peaks) > 1:
-                print("{}: WARNING: multiple possible traces found".format(self.data_file))
+                logger.warning("{}: WARNING: multiple possible traces found".format(self.data_file))
             for peak in peaks:
                 y_vals.append(np.array([peak-self.extrsize//2 for x in range(self.x_size)]))
                 y_vals.append(np.array([peak+self.extrsize//2 for x in range(self.x_size)]))
@@ -438,17 +439,14 @@ def reduce_flatfield(input_row, **kwargs):
         with open(setting_file, 'r') as inf:
             settings = yaml.safe_load(inf)
     
-    if verbose:
-        print("{}: starting".format(preamble))
+    logger.info("{}: starting".format(preamble))
     
     if "MAMA" in detector:
         # UV reduction. No cosmic rays issues. Just reduce
-        if verbose:
-            print("{}: MAMA reduction".format(preamble))
+        logger.info("{}: MAMA reduction".format(preamble))
         basic2d.basic2d(raw_file, output=final_file, verbose=verbose)
     else:
-        if verbose:
-            print("{}: CCD reduction.".format(preamble))
+        logger.info("{}: CCD reduction.".format(preamble))
         
         # Default calibration flag values
         # dqicorr='perform', 
@@ -563,18 +561,15 @@ def reduce_flatfield(input_row, **kwargs):
                 exposure[0].header["HISTORY"] = "ABSCAL: Third pass"
         else:
             # Interpolate across hot pixels
-            if verbose:
-                print("{}: Averaging over hot pixels".format(preamble))
+            logger.debug("{}: Averaging over hot pixels".format(preamble))
             hpix_params = setup_params("hpix", "stis", settings, input_row, verbose)
             hot_pixel_mapping = kwargs['hot_pixel_mapping']
             with fits.open(interim_file) as exposure:
                 dark_file = exposure[0].header["DARKFILE"]
             if dark_file not in hot_pixel_mapping:
-                if verbose:
-                    print("{}: Creating mapping for {}".format(preamble, dark_file))
+                logger.debug("{}: Creating mapping for {}".format(preamble, dark_file))
                 hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
-            if verbose:
-                print("{}: Hot pixel interpolation".format(preamble))
+            logger.debug("{}: Hot pixel interpolation".format(preamble))
             # 
             # The DQ "magic value" of 125 is from the original hot pixel interpolation routine
             # in IDL calstis.
@@ -604,12 +599,10 @@ def reduce_flatfield(input_row, **kwargs):
     
     # Assign wavelength offsets
     if os.path.isfile(wave_file):
-        if verbose:
-            print("{}: Running wavecal to assign SHIFT keywords")
+        logger.debug("{}: Running wavecal to assign SHIFT keywords")
         wavecal(final_file, wave_file, verbose=verbose)
 
-    if verbose:
-        print("{}: finished".format(preamble))
+    logger.info("{}: finished".format(preamble))
     
     return os.path.basename(final_file)
 
@@ -651,8 +644,7 @@ def reduce_extract(input_row, **kwargs):
     # Vignetting info
     dist1 = "{}".format(100 + abs(float(input_row['raw_postarg']))/0.05)
 
-    if verbose:
-        print("{}: starting".format(preamble))
+    logger.info("{}: starting".format(preamble))
 
     # For plotting what's going on in the 2D file:
     #   - "backcorr":   f[0].header["BACKCORR"]
@@ -726,8 +718,7 @@ def reduce_extract(input_row, **kwargs):
     )
     ext_app.mainloop()
 
-    if verbose:
-        print("{}: finished".format(preamble))
+    logger.info("{}: finished".format(preamble))
 
     return os.path.basename(final_file)
 
@@ -771,8 +762,7 @@ def reduce(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
 
-    if verbose:
-        print("{}: Starting STIS data reduction for spectroscopic data.".format(task))
+    logger.info("{}: Starting STIS data reduction for spectroscopic data.".format(task))
 
     settings = {}
     setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
@@ -784,18 +774,15 @@ def reduce(input_table, **kwargs):
         # Make sure the files are set to use the appropriate CRDS references, and that the
         # references have been appropriately retrieved.
         task_verbosity = -1
-        if verbose:
-            print("{}: Checking Reference Data".format(task))
+        logger.debug("{}: Checking Reference Data".format(task))
             task_verbosity = 10
         files = [os.path.join(p,f) for p,f in zip(input_table['path'], input_table['filename'])]
         assign_bestrefs(files, sync_references=True, verbosity=task_verbosity)
     else:
-        if verbose:
-            print("{}: Skipping reference file update".format(task))
+        logger.debug("{}: Skipping reference file update".format(task))
     kwargs['hot_pixel_mapping'] = {}
 
-    if verbose:
-        print("{}: Starting individual file reductions".format(task))
+    logger.info("{}: Starting individual file reductions".format(task))
     for row in input_table:
         root = row['root']
         target = row['target']
@@ -823,13 +810,11 @@ def reduce(input_table, **kwargs):
             ext_file = os.path.join(out_dir, row['extracted'])
             if os.path.isfile(ext_file):
                 if force:
-                    if verbose:
-                        msg = "{}: {}: extracted file exists. Re-extracting."
-                        print(msg.format(task, root))
+                    msg = "{}: {}: extracted file exists. Re-extracting."
+                    logger.debug(msg.format(task, root))
                 else:
-                    if verbose:
-                        msg = "{}: {}: skipping extraction because file exists."
-                        print(msg.format(task, root))
+                    msg = "{}: {}: skipping extraction because file exists."
+                    logger.debug(msg.format(task, root))
                     continue
         else:
             extracted_file_name = "{}_{}_x1d.fits".format(root, target)
@@ -839,42 +824,33 @@ def reduce(input_table, **kwargs):
             if os.path.isfile(extracted_dest):
                 ext_str = os.path.join(spec_dir, extracted_file_name)
                 if force:
-                    if verbose:
-                        msg = "{}: {}: extracted file exists. Re-extracting."
-                        print(msg.format(task, root))
+                    msg = "{}: {}: extracted file exists. Re-extracting."
+                    logger.debug(msg.format(task, root))
                 else:
                     row['extracted'] = ext_str
-                    if verbose:
-                        msg = "{}: {}: skipping extraction because file exists."
-                        print(msg.format(task, root))
+                    msg = "{}: {}: skipping extraction because file exists."
+                    logger.debug(msg.format(task, root))
                     continue
 
         # Only reduce spectroscopic data in the reduce function.
         if row['use']:
-            if verbose:
-                print("{}: Starting {}".format(task, root))
-
-            if verbose:
-                print("{}: Flatfielding {} ({})".format(task, root, row['mode']))
+            logger.info("{}: Starting {}".format(task, root))
+            logger.debug("{}: Flatfielding {} ({})".format(task, root, row['mode']))
             reduced_2d = reduce_flatfield(row, **kwargs)
             if reduced_2d is not None:
                 row['flatfielded'] = reduced_2d
             
-                if verbose:
-                    print("{}: Extracting {} ({})".format(task, root, row['mode']))
+                logger.info("{}: Extracting {} ({})".format(task, root, row['mode']))
                 reduced_extracted = reduce_extract(row, **kwargs)
                 if reduced_extracted is not None:
                     row['extracted'] = reduced_extracted
             else:
-                if verbose:
-                    print("{}: Flatfielding failed. Skipping extraction.".format(task))
+                logger.warning("{}: Flatfielding failed. Skipping extraction.".format(task))
             
-            if verbose:
-                print("{}: Finished {}".format(task, root))
-
-        elif verbose:
+            logger.info("{}: Finished {}".format(task, root))
+        else:
             msg = "{}: Skipping {} because it's been set to don't use (reason: {})."
-            print(msg.format(task, root, row['notes']))
+            logger.info(msg.format(task, root, row['notes']))
 
     return input_table
 

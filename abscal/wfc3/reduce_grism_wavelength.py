@@ -116,10 +116,9 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
         yapprox = np.floor(y_arr[xapprox] + .5).astype(np.int32)
         if isinstance(yapprox, np.ndarray):
             yapprox = yapprox[0]
-        if verbose:
-            print(type(xapprox), type(yapprox))
-            msg = "WLIMAZ: 10830 line at approx ({},{})"
-            print(msg.format(xapprox, yapprox))
+        logger.debug(type(xapprox), type(yapprox))
+        msg = "WLIMAZ: 10830 line at approx ({},{})"
+        logger.debug(msg.format(xapprox, yapprox))
 
         # Fix any DQ=8 pixels
         ns = 11 # for an 11x11 search area
@@ -135,8 +134,7 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
 
         # If all bad pixels have been zeroed, interpolate them.
         if totbad == 0:
-            if verbose:
-                print("WLIMAZ: {} bad pixels repaired".format(nbad))
+            logger.info("WLIMAZ: {} bad pixels repaired".format(nbad))
             for i in range(nbad):
                 xbad = bad[0][i] % ns
                 ybad = bad[0][i] / ns
@@ -156,17 +154,16 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
         star_x = star_table['xcentroid'][0]
         star_y = star_table['ycentroid'][0]
         if star_x < 0 or star_y < 0:
-            print("WLIMAZ: Peak too close to edge: using approximate position.")
+            logger.warning("WLIMAZ: Peak too close to edge: using approximate position.")
             star_x = xpos
             star_y = ypos
 
         star_x = star_x + xapprox - ns//2
         star_y = star_y + yapprox - ns//2
-        if verbose:
-            print("\tDAOFind: xc={}, yc={}".format(star_x, star_y))
+        logger.info("\tDAOFind: xc={}, yc={}".format(star_x, star_y))
 
         if nbad > 0:
-            print("WLIMAZ: nbad={}, total bad counts={}".format(nbad, totbad))
+            logger.info("WLIMAZ: nbad={}, total bad counts={}".format(nbad, totbad))
         return star_x, star_y
 
 
@@ -250,9 +247,8 @@ def wlmeas(input_table, **kwargs):
 
     xpx = np.arange(1014, dtype=np.float64)
 
-    if verbose:
-        msg = "{}: Starting WFC3 wavelength measurement for GRISM data with {} inputs."
-        print(msg.format(task, len(input_table)))
+    msg = "{}: Starting WFC3 wavelength measurement for GRISM data with {} inputs."
+    logger.info(msg.format(task, len(input_table)))
 
     roots = []
     stars = []
@@ -278,9 +274,9 @@ def wlmeas(input_table, **kwargs):
         if not os.path.isfile(spec_file):
             # look for default extracted file
             extracted_name = "{}_{}_x1d.fits".format(row['root'], row['target'])
-            print("Extracted Name: {}".format(extracted_name))
+            logger.info("Extracted Name: {}".format(extracted_name))
             extracted_dest = os.path.join(spec_dir, extracted_name)
-            print("Extracted File: {}".format(extracted_dest))
+            logger.info("Extracted File: {}".format(extracted_dest))
             
             if os.path.isfile(extracted_dest):
                 spec_file = extracted_dest
@@ -289,7 +285,7 @@ def wlmeas(input_table, **kwargs):
                 row['extracted'] = extracted_value
             else:
                 msg = "{}: Unable to find extracted spectrum '{}'. Extracting."
-                print(msg.format(task, row['extracted']))
+                logger.info(msg.format(task, row['extracted']))
                 extract_table = input_table[input_table['root']==row['root']]
                 output_row = reduce(extract_table, **kwargs)
                 for item in ['path', 'extracted', 'xc', 'yc', 'xerr', 'yerr']:
@@ -299,17 +295,16 @@ def wlmeas(input_table, **kwargs):
                                          output_row['extracted'][0])
                 if not os.path.isfile(spec_file):
                     msg = "{}: {}: ERROR: EXTRACTION FAILED. SKIPPING ROW"
-                    print(msg.format(task, row['root']))
+                    logger.error(msg.format(task, row['root']))
                     continue
         # END search for the 1d extracted spectrum.
 
-        if verbose:
-            print("{}: reducing {}".format(task, root))
-            print("\tpath is {}".format(path))
-            print("\textracted is {}".format(row["extracted"]))
-            print("\tfile is {}".format(spec_file))
-            print("\trow: ")
-            print(row)
+        logger.info("{}: reducing {}".format(task, root))
+        logger.debug("\tpath is {}".format(path))
+        logger.debug("\textracted is {}".format(row["extracted"]))
+        logger.debug("\tfile is {}".format(spec_file))
+        logger.debug("\trow: ")
+        logger.debug(row)
         star = row["target"]
         grat = row["filter"]
         preamble = "wlmeas: {} ({}) ({})".format(root, grat, star)
@@ -416,7 +411,7 @@ def wlmeas(input_table, **kwargs):
                     fit_status = "ima"
 
                 if nbad > 0 and xline[ilin] == 0.:
-                    print("WARNING: Centred using bad DQ")
+                    logger.warning("WARNING: Centred using bad DQ")
 
                 if root in issues:
                     siord = str(iord)
@@ -549,8 +544,7 @@ def wlmeas(input_table, **kwargs):
                 line_dict[int(wv)] = xcentr
                 note_dict[int(wv)] = fit_status
 
-                if verbose:
-                    print("{}: Finished line {}".format(preamble, wv))
+                logger.info("{}: Finished line {}".format(preamble, wv))
 
             roots.append(root)
             stars.append(star)
@@ -561,12 +555,9 @@ def wlmeas(input_table, **kwargs):
             lines.append(line_dict)
             notes.append(note_dict)
 
-            if verbose:
-                print("{}: Finished order {}.".format(preamble, iord))
-        if verbose:
-            print("{}: Finished obs {}".format(preamble, root))
-    if verbose:
-        print("{}: finished wavelength measurement.".format(preamble))
+            logger.info("{}: Finished order {}.".format(preamble, iord))
+        logger.info("{}: Finished obs {}".format(preamble, root))
+    logger.info("{}: finished wavelength measurement.".format(preamble))
 
     output_table = Table()
     output_table['root'] = Column(data=roots)
@@ -640,8 +631,8 @@ def wlmake(input_table, wl_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
     
-    if verbose:
-        print("Starting {}\nInput data:\n{}".format(task, wl_table))
+    logger.info(f"Starting {task}")
+    logger.debug(f"Input data:\n{wl_table}")
 
     line_array = [9071, 9535, 10832, 12821, 16411] #16113, 16411]
     visible_lines = {
@@ -672,15 +663,13 @@ def wlmake(input_table, wl_table, **kwargs):
               }
 
     for grism_index,grism in enumerate(['G102', 'G141']):
-        if verbose:
-            print("{}: starting grism {}".format(task, grism))
+        logger.info("{}: starting grism {}".format(task, grism))
 
         mask = [g == grism for g in wl_table['grism']]
         grism_table = wl_table[mask]
 
         for iord in [-1, 1, 2]:
-            if verbose:
-                print("{}: {}: starting order {}".format(task, grism, iord))
+            logger.debug("{}: {}: starting order {}".format(task, grism, iord))
             ord_mask = [o == iord for o in grism_table['order']]
             current_table = grism_table[ord_mask]
             xord_mask = [x > 0 for x in current_table['X_0_ORD']]
@@ -696,8 +685,7 @@ def wlmake(input_table, wl_table, **kwargs):
             ngood = len(current_table)
             if ngood <= 0:
                 continue
-            if verbose:
-                print("{}: {}: {}: Found {} good rows".format(task, grism, iord, ngood))
+            logger.debug("{}: {}: {}: Found {} good rows".format(task, grism, iord, ngood))
             dofil = current_table['root']
             dostr = current_table['star']
             doord = current_table['order'].data
@@ -717,23 +705,23 @@ def wlmake(input_table, wl_table, **kwargs):
             
             good_fits = {}
             good_lines = []
-            print(current_table)
+            logger.debug(current_table)
             for line in visible_lines[grism]:
-                print("Checking line {}".format(line),end='')
+                logger.info("Checking line {}".format(line))
                 good_fits[line] = 0
                 for row in current_table:
                     notes_col = '{}_notes'.format(line)
                     if ('good' in row[notes_col]) or ('custom' in row[notes_col]):
                         good_fits[line] += 1
-                        print(" good ",end='')
+                        logger.info("\tgood")
                     else:
-                        print(" bad ",end='')
-                print("{} good of {} ".format(good_fits[line], ngood),end='')
+                        logger.info("\tbad")
+                logger.info("{} good of {} ".format(good_fits[line], ngood),end='')
                 if good_fits[line] > 0.5*ngood:
-                    print("adding line {}.".format(line))
+                    logger.info("Adding line {}.".format(line))
                     good_lines.append(line)
                 else:
-                    print("rejected.")
+                    logger.warning("Rejected.")
             nline = len(good_lines)
             low_line, high_line = min(good_lines), max(good_lines)
             low_idx, high_idx = line_array.index(low_line), line_array.index(high_line)
@@ -762,8 +750,7 @@ def wlmake(input_table, wl_table, **kwargs):
             b[:,1] = dozy[fit_good]            
             m = deepcopy(b)
             b[:,2] = b3rd[:]
-            if verbose:
-                print("b matrix is {}".format(b))
+            logger.debug("b matrix is {}".format(b))
             b_fit,_,_,_ = lstsq(np.c_[b[:,0], b[:,1], np.ones(b.shape[0])], b[:,2])
             b_x, b_y, b_const = b_fit
             bfit = [b_const + b_x*x + b_y*y for x,y in zip(b[:,0], b[:,1])]
@@ -772,12 +759,10 @@ def wlmake(input_table, wl_table, **kwargs):
             results['b_y'].append(b_y)
             bval = b_const + b_x*506 + b_y*506 # b at (x,y) = (506,506)
             xr = [np.min(dozx[fit_good]), np.max(dozx[fit_good])] # range of 0-order points
-            if verbose:
-                print("{}: {}: {}: Z0 x-range is {}".format(task, grism, iord, xr))
-                print("\t b1={}, b2={}, b3={}".format(b_const, b_x, b_y))
+            logger.debug("{}: {}: {}: Z0 x-range is {}".format(task, grism, iord, xr))
+            logger.debug("\t b1={}, b2={}, b3={}".format(b_const, b_x, b_y))
             m[:,2] = disp[fit_good]
-            if verbose:
-                print("m matrix is {}".format(m))
+            logger.debug("m matrix is {}".format(m))
             m_fit,_,_,_ = lstsq(np.c_[m[:,0], m[:,1], np.ones(m.shape[0])], m[:,2])
             m_x, m_y, m_const = m_fit
             mfit = [m_const + m_x*x + m_y*y for x,y in zip(m[:,0], m[:,1])]
@@ -787,8 +772,7 @@ def wlmake(input_table, wl_table, **kwargs):
             mval = m_const + m_x*xpx * m_y*506
             mval = m_const + m_x*xpx * m_y*106
             mval = m_const + m_x*xpx * m_y*906
-            if verbose:
-                print("\t m1={}, m2={}, m3={}".format(m_const, m_x, m_y))
+            logger.debug("\t m1={}, m2={}, m3={}".format(m_const, m_x, m_y))
             
             line = []
             for em_line in visible_lines[grism]:
@@ -801,9 +785,8 @@ def wlmake(input_table, wl_table, **kwargs):
                 if n_line_good <= 0:
                     break # in theory break from the entire order, but we do what we can.
                 wlerr = np.zeros((n_line_good,), np.float64)
-                if verbose:
-                    msg = "{}: {}: {}: File      Xmeas (px)  Xfit   err (A)"
-                    print(msg.format(task, grism, iord))
+                msg = "{}: {}: {}: File      Xmeas (px)  Xfit   err (A)"
+                logger.info(msg.format(task, grism, iord))
                 for igd in range(n_line_good):
                     indx = line_good[0][igd]
                     row = current_table[indx]
@@ -812,30 +795,24 @@ def wlmake(input_table, wl_table, **kwargs):
                     wnew = bval + mval*(xpx - dozx[indx])
                     xfit = tabinv(wnew, line[ilin]*iord*rvc_p1[indx])
                     wlerr[igd] = (doxi[indx,ilin] - xfit)*mval
-                    if verbose:
-                        msg = "                 {} {:8.2f} {:8.2f} {:8.2f} YZO={:8.2f}"
-                        print(msg.format(row['root'], doxi[indx,ilin], xfit[0], 
-                                         wlerr[igd], dozy[indx]))
-                if verbose:
-                    msg = "Line, rms (A) and avg={}, {}, {}, #Obs={}"
-                    print(msg.format(line[ilin], np.std(wlerr), np.mean(wlerr), 
-                                     n_line_good))
+                    msg = "                 {} {:8.2f} {:8.2f} {:8.2f} YZO={:8.2f}"
+                    logger.info(msg.format(row['root'], doxi[indx,ilin], xfit[0], wlerr[igd], dozy[indx]))
+                msg = "Line, rms (A) and avg={}, {}, {}, #Obs={}"
+                logger.info(msg.format(line[ilin], np.std(wlerr), np.mean(wlerr), n_line_good))
             
             dmeas = m[:,2]
             bmeas = b[:,2]
             xpos, ypos = dozx, dozy
             berr = bmeas - bfit
             merr = dmeas - mfit
-            if verbose:
-                msg = "{}: {}: {}: File     ZX (px)    ZY    b fit (A)     bmeas     berr"
-                print(msg.format(task, grism, iord))
-                for i in range(ngood):
-                    row = current_table[i]
-                    msg = "               {} {:8.2f} {:8.2f} {:8.2f} {:8.2f}  {:8.2f}"
-                    print(msg.format(row['root'], xpos[i], ypos[i], bfit[i], bmeas[i], 
-                                     berr[i]))
-                print("b rms={}".format(np.std(bmeas-bfit)))
-                print("m rms={}".format(np.std(dmeas-mfit)))
+            msg = "{}: {}: {}: File     ZX (px)    ZY    b fit (A)     bmeas     berr"
+            logger.info(msg.format(task, grism, iord))
+            for i in range(ngood):
+                row = current_table[i]
+                msg = "               {} {:8.2f} {:8.2f} {:8.2f} {:8.2f}  {:8.2f}"
+                logger.info(msg.format(row['root'], xpos[i], ypos[i], bfit[i], bmeas[i], berr[i]))
+            logger.info("b rms={}".format(np.std(bmeas-bfit)))
+            logger.info("m rms={}".format(np.std(dmeas-mfit)))
             
             if show_plots:
                 for igd in range(ngood):
@@ -882,13 +859,12 @@ def wlmake(input_table, wl_table, **kwargs):
                         plt.ylim(0, np.max(net_region)*1.1)
                         plt.show()
                 
-                        if verbose:
-                            print("{}: {}: {}: {}".format(task, grism, iord, row['root']))
-                            print("b={}, m={}".format(bval, mval))
-                            print("Measured Dispersion = {}".format(dmeas[igd]))
-                            print("Measured b={}".format(bmeas[igd]))
-                            print("b,m errors={}, {}".format(bval-bmeas[igd], mval-dmeas[igd]))
-                            print("Angle={}".format(angle))
+                        logger.info("{}: {}: {}: {}".format(task, grism, iord, row['root']))
+                        logger.info("b={}, m={}".format(bval, mval))
+                        logger.info("Measured Dispersion = {}".format(dmeas[igd]))
+                        logger.info("Measured b={}".format(bmeas[igd]))
+                        logger.info("b,m errors={}, {}".format(bval-bmeas[igd], mval-dmeas[igd]))
+                        logger.info("Angle={}".format(angle))
             # done interactive plot
         # DONE ORDER LOOP
     # DONE GRISM LOOP

@@ -45,6 +45,7 @@ from distutils.util import strtobool
 from pathlib import Path
 from simpleeval import simple_eval
 
+from .logging import DEFAULT_LOGGER as logger
 from .utils import build_expr
 
 
@@ -262,7 +263,7 @@ class AbscalDataTable(Table):
         
         for column in metadata_dict:
             if column not in self.standard_columns:
-                print("ERROR: Unknown Column {}".format(column))
+                logger.error(f"ERROR: Unknown Column {column}")
         
         # If this is a duplicate entry (same root exists in table already), treat it 
         # according to the duplicate policy. Otherwise, pass along to add_row().
@@ -532,8 +533,8 @@ class AbscalDataTable(Table):
         try:
             t = t.read(file_name, format=format)
         except Exception as e:
-            print("ERROR while reading: {}".format(e))
-            print("Falling back to IDL-format reader")
+            logger.error(f"ERROR while reading: {e}")
+            logger.error("Falling back to IDL-format reader")
             t = AbscalDataTable.from_idl_table(file_name)
         
         return t

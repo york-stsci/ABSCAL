@@ -46,6 +46,7 @@ from pathlib import Path
 from simpleeval import simple_eval
 
 from abscal.common.utils import build_expr
+from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.exposure_data_table import AbscalDataTable
 
 
@@ -156,9 +157,9 @@ class WFC3DataTable(AbscalDataTable):
             elif filter == 'grism':
                 table = WFC3DataTable._grism_filter(table)
             else:
-                print("Warning: Unknown filter {}".format(filter))
+                logger.warning("Warning: Unknown filter {}".format(filter))
         else:
-            print("Warning: Unknown filter {}".format(filter))
+            logger.warning("Warning: Unknown filter {}".format(filter))
             table = filter(table)
 
         return table

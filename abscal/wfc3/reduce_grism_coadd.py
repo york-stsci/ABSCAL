@@ -71,6 +71,7 @@ from pathlib import Path
 from scipy.stats import mode
 
 from abscal.common.args import parse
+from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.ui import PlotLegendWindow
 from abscal.common.utils import get_data_file, get_defaults, set_params
 from abscal.wfc3.reduce_grism_extract import reduce
@@ -157,7 +158,6 @@ def coadd(input_table, **kwargs):
     input_table : abscal.common.exposure_data_table.AbscalDataTable
         The updated table of exposures
     """
-    print(kwargs)
     task = "wfc3: grism: coadd"
     default_values = get_defaults('abscal.common.args')
     base_defaults = default_values | get_defaults(kwargs.get('module_name', __name__))
@@ -175,10 +175,9 @@ def coadd(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
 
-    if verbose:
-        print("{}: Starting WFC3 coadd for GRISM data.".format(task))
-        print("{}: Input table is:".format(task))
-        print(input_table)
+    logger.info("{}: Starting WFC3 coadd for GRISM data.".format(task))
+    logger.debug("{}: Input table is:".format(task))
+    logger.debug(input_table)
 
     # 32 and 512 OK "per icqv02i3q RCB 2015may26"
     flags = 4 | 8 | 16 | 64 | 128 | 256
@@ -192,8 +191,7 @@ def coadd(input_table, **kwargs):
 
     unique_obs = sorted(list(set(input_table['obset'])))
     
-    if verbose:
-        print("{}: Found {} unique obsets: {}".format(task, len(unique_obs), unique_obs))
+    logger.info("{}: Found {} unique obsets: {}".format(task, len(unique_obs), unique_obs))
     
     output_table = deepcopy(input_table)
 
@@ -216,10 +214,9 @@ def coadd(input_table, **kwargs):
             
             coadded_file = filter_table[0]['coadded']
             if (not is_masked(coadded_file)) and (os.path.isfile(os.path.join(out_dir, coadded_file))):
-                if verbose:
-                    coadded_file = filter_table[0]['coadded']
-                    msg = "{}: {} co-added file {} found. Skipping."
-                    print(msg.format(task, obs, coadded_file))
+                coadded_file = filter_table[0]['coadded']
+                msg = "{}: {} co-added file {} found. Skipping."
+                logger.debug(msg.format(task, obs, coadded_file))
                 continue
             else:
                 # Manually check for file name
@@ -230,18 +227,16 @@ def coadd(input_table, **kwargs):
                 out_file = os.path.join(spec_dir, out_file_name)
                 
                 if os.path.isfile(out_file):
-                    if verbose:
-                        msg = "{}: {} co-added file {} found. Skipping."
-                        print(msg.format(task, obs, out_file_name))
+                    msg = "{}: {} co-added file {} found. Skipping."
+                    logger.debug(msg.format(task, obs, out_file_name))
                     out_mask = (output_table['obset'] == obs) & \
                                 (output_table['filter'] == filter)
                     output_table["coadded"][out_mask] = out_file
                     continue
 
-            if verbose:
-                print("{}: Co-adding {}".format(task, obs))
-                print("{}: {} table for {} is:".format(task, obs, filter))
-                print(filter_table)
+            logger.info("{}: Co-adding {}".format(task, obs))
+            logger.debug("{}: {} table for {} is:".format(task, obs, filter))
+            logger.debug(filter_table)
             st = ''
 
             spec_files = []
@@ -274,11 +269,11 @@ def coadd(input_table, **kwargs):
                         row['extracted'] = extracted_value
                     else:
                         msg = "{}: Unable to find extracted spectrum '{}'. Extracting."
-                        print(msg.format(preamble, row['extracted']))
+                        logger.warning(msg.format(preamble, row['extracted']))
                         extract_table = input_table[input_table['root']==row['root']]
                         output_row = reduce(extract_table, **kwargs)
-                        print("Extraction Output is:")
-                        print(output_row)
+                        logger.debug("Extraction Output is:")
+                        logger.debug(output_row)
                         for item in ['path', 'extracted', 'xc', 'yc', 'xerr', 'yerr']:
                             output_table[item][root_filter] = output_row[item][0]
                             row[item] = output_row[item][0]
@@ -286,7 +281,7 @@ def coadd(input_table, **kwargs):
                                                  output_row['extracted'][0])
                         if not os.path.isfile(spec_file):
                             msg = "{}: {}: ERROR: EXTRACTION FAILED. SKIPPING ROW"
-                            print(msg.format(preamble, row['root']))
+                            logger.error(msg.format(preamble, row['root']))
                             continue
                 # END search for the 1d extracted spectrum.
                 
@@ -364,7 +359,7 @@ def coadd(input_table, **kwargs):
 
             if len(spec_wave) == 0:
                 msg = "{}: ERROR: No spectra found for {} {}"
-                print(msg.format(preamble, filter, target))
+                logger.error(msg.format(preamble, filter, target))
                 continue
             f_good = deepcopy(spec_net)
             mask = np.where((spec_eps & flags) == 0, 1, 0).astype('int32')
@@ -396,9 +391,8 @@ def coadd(input_table, **kwargs):
             tmrg = np.array((), dtype='float64')    # merged exptime array
 
             for iord in [-1, 1, 2]:
-                if verbose:
-                    msg = "{}: Starting Co-Add for Order {}"
-                    print(msg.format(preamble, iord))
+                msg = "{}: Starting Co-Add for Order {}"
+                logger.debug(msg.format(preamble, iord))
                 ireg += 1
                 wb = wbeg * iord
                 we = wend * iord
@@ -418,12 +412,11 @@ def coadd(input_table, **kwargs):
                 if np.max(jgood) < 0:
                     msg = "{}: No Good Data in wavelength range ({},{}) "
                     msg += "for order {}"
-                    print(msg.format(preamble, wbeg, wend, iord))
+                    logger.warning(msg.format(preamble, wbeg, wend, iord))
                     continue
                 igood = np.where(jgood>=0)[0]
-                if verbose:
-                    msg = "{}: {} spectra to cross-correlate for order={}."
-                    print(msg.format(preamble, len(igood), iord))
+                msg = "{}: {} spectra to cross-correlate for order={}."
+                logger.info(msg.format(preamble, len(igood), iord))
 
                 # find approximate offset between spectra using input wavelength scales
                 # and actual offsets using cross correlation
@@ -476,10 +469,9 @@ def coadd(input_table, **kwargs):
                         ie = np.searchsorted(wl1, wecm)
                         if ib > ie:
                             raise ValueError("Wavelength range start>end.")
-                        if verbose:
-                            msg = "{}: Cross-correlate WL range {}-{} for "
-                            msg += "order {}"
-                            print(msg.format(preamble, wbcm, wecm, iord))
+                        msg = "{}: Cross-correlate WL range {}-{} for "
+                        msg += "order {}"
+                        logger.debug(msg.format(preamble, wbcm, wecm, iord))
 
                         # Cross-correlate
                         # 
@@ -494,7 +486,7 @@ def coadd(input_table, **kwargs):
                                                           **kwargs)
                         except Exception as e:
                             msg = "{}: ERROR in Cross-correlation: {}"
-                            print(msg.format(preamble, e))
+                            logger.error(msg.format(preamble, e))
                             # Maybe should just exclude? If so, how?
                             offset = 0
                             arr = []
@@ -503,11 +495,10 @@ def coadd(input_table, **kwargs):
                         #   not enough coverage, so offset -> 0.
                         if (wend-wbeg) - abs((we-wb)/iord) > 1000:
                             offset = 0
-                        if verbose:
-                            msg = "{}: {} vs. {} shift={} for order {}"
-                            f0 = os.path.basename(spec_files[igood[0]])
-                            f1 = os.path.basename(spec_files[igood[i]])
-                            print(msg.format(preamble, f0, f1, offset, iord))
+                        msg = "{}: {} vs. {} shift={} for order {}"
+                        f0 = os.path.basename(spec_files[igood[0]])
+                        f1 = os.path.basename(spec_files[igood[i]])
+                        logger.debug(msg.format(preamble, f0, f1, offset, iord))
 
                         if abs(offset) > 2.7 and show_plots:
                             fig = plt.figure()
@@ -537,7 +528,7 @@ def coadd(input_table, **kwargs):
                             msg = "{}: offset {} found is too high, so "
                             msg += "cross-correlation offset set to zero for "
                             msg += "order={}"
-                            print(msg.format(preamble, offset, iord))
+                            logger.warning(msg.format(preamble, offset, iord))
                             offset = 0
 
                         wcor[i,:] = spec_wave[igood[i],:] + offset*delam
@@ -826,12 +817,9 @@ def coadd(input_table, **kwargs):
                     row['coadded'] = coadd_file
                     output_table['coadded'][output_table['root']==row['root']] = coadd_col
 
-            if verbose:
-                print("{}: Finished filter.".format(preamble))
-        if verbose:
-            print("{}: {}: Finished obs".format(task, obs))
-    if verbose:
-        print("{}: finished co-add".format(task))
+            logger.info("{}: Finished filter.".format(preamble))
+        logger.info("{}: {}: Finished obs".format(task, obs))
+    logger.info("{}: finished co-add".format(task))
 
     return output_table
 

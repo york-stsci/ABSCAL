@@ -31,6 +31,8 @@ from astroquery.mast import Observations
 from ruamel.yaml import YAML
 from simpleeval import simple_eval
 
+from .logging import DEFAULT_LOGGER as logger
+
 
 mast_instrument_prefixes = {'wfc3': 'i', 'stis': 'o'}
 exp_str = "[a-zA-Z0-9]{9}_[a-zA-Z0-9]{3}\\.fits"
@@ -58,20 +60,13 @@ def download_mast_program(proposal_ids, download_dir, instruments='all', exts='a
     force : bool, default False
         Force the re-downloading of files already in "download_dir"?
     """
-    if verbose:
-        print("Retrieving program(s) {}".format(proposal_ids))
-        print("Retrieving to {}".format(download_dir))
-        print("Retrieving instrument(s) {} and extension(s) {}".format(instruments, exts))
+    logger.debug(f"Retrieving program(s) {proposal_ids}")
+    logger.debug(f"Retrieving to {download_dir}")
+    logger.debug(f"Retrieving instrument(s) {instrument} and extension(s) {exts}")
     proposal_ids = str(proposal_ids).split(",")
     result_table = Observations.query_criteria(proposal_id=proposal_ids, project='hst')
-#     if verbose:
-#         print("Result Table:")
-#         print(result_table)
-#     obs_mask = [x[:4] != 'hst_' for x in flux_table['obs_id']]
-#     obs_filter = [id for id in flux_table['obs_id'] if id[:4] != 'hst_']
-#     flux_table = flux_table[obs_mask]
     obs_ids = list(result_table['obs_id'])
-    print("obs_ids list: {}".format(obs_ids))
+    logger.info(f"obs_ids list: {obs_ids}")
     if not force:
         i = 0
         while i < len(obs_ids):
@@ -85,12 +80,10 @@ def download_mast_program(proposal_ids, download_dir, instruments='all', exts='a
                 i += 1
     mask = [x in obs_ids for x in result_table['obs_id']]
     result_table = result_table[mask]
-    if verbose:
-        print("Masked Result Table")
-        print(result_table)
+    logger.debug("Masked Result Table")
+    logger.debug(result_table)
     if len(result_table) == 0:
-        if verbose:
-            print("No records left to retrieve")
+        logger.debug("No records left to retrieve")
         return
     data_products = Observations.get_product_list(result_table[mask])
     mask = [x in obs_ids for x in data_products['obs_id']]    
@@ -102,21 +95,17 @@ def download_mast_program(proposal_ids, download_dir, instruments='all', exts='a
         for ext in exts.split(",") + ["spt", "asn", "wav"]:
             mask = np.bitwise_or(mask, np.array(["{}.fits".format(ext) in x for x in data_products['productFilename']]))
         data_products = data_products[mask]
-    if verbose:
-        print("Data Products:")
-        print(data_products)
+    logger.debug("Data Products:")
+    logger.debug(data_products)
     if len(data_products) == 0:
-        if verbose:
-            print("No files left to retrieve")
+        logger.debug("No files left to retrieve")
         return
     manifest = Observations.download_products(data_products, download_dir=download_dir)
-    if verbose:
-        print("Manifest:")
-        print(manifest)
+    logger.debug("Manifest:")
+    logger.debug(manifest)
     for file_name in manifest['Local Path']:
         base_file = os.path.basename(file_name)
-        if verbose:
-            print("Copying {}".format(base_file))
+        logger.debug("Copying {}".format(base_file))
         shutil.copy(os.path.join(download_dir, file_name), os.path.join(download_dir, base_file))
     shutil.rmtree(os.path.join(download_dir, "mastDownload"))
   

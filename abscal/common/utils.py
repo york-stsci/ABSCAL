@@ -28,6 +28,8 @@ from ruamel.yaml import YAML
 import shutil
 from simpleeval import simple_eval
 
+from .logging import DEFAULT_LOGGER as logger
+
 
 def absdate(pstrtime):
     """
@@ -367,7 +369,7 @@ def build_expr(value):
             elif value["special"] == "contains":
                 expr = "'{}' in {}".format(search_key, search_column)
             else:
-                print("ERROR: Unknown special column type {}".format(inputs["special"]))
+                logger.error("ERROR: Unknown special column type {inputs['special']}")
         else:
             if wildcard_token in search_key:
                 expr = "{} in '{}'".format(search_column, search_key.replace(wildcard_token, ""))
@@ -455,27 +457,22 @@ def value_eval(var, expr, pre="", verbose=False):
             if wildcard_char in expr:
                 expr = expr.replace(wildcard_char, "")
                 final = "not ('{}' in '{}')".format(expr, var)
-                if verbose:
-                    print("{}: evaluating '{}'".format(pre, final))
+                logger.debug("{}: evaluating '{}'".format(pre, final))
                 return simple_eval(final)
             else:
                 final = "not ('{}' {})".format(var, expr)
-                if verbose:
-                    print("{}: evaluating '{}'".format(pre, final))
+                logger.debug("{}: evaluating '{}'".format(pre, final))
                 return simple_eval(final)
         elif wildcard_char in expr:
             expr = expr.replace(wildcard_char, "")
             final = "'{}' in '{}'".format(expr, var)
-            if verbose:
-                print("{}: evaluating '{}'".format(pre, final))
+            logger.debug("{}: evaluating '{}'".format(pre, final))
             return simple_eval(final)
         final = "'{}' {}".format(var, expr)
-        if verbose:
-            print("{}: evaluating '{}'".format(pre, final))
+        logger.debug("{}: evaluating '{}'".format(pre, final))
         return simple_eval(final)
     final = "{} {}".format(var, expr)
-    if verbose:
-        print("{}: evaluating '{}'".format(pre, final))
+    logger.debug("{}: evaluating '{}'".format(pre, final))
     return simple_eval(final)
 
 
@@ -512,35 +509,29 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
     match_found = False
     
     if name in inputs:
-        if verbose:
-            print("{}Found {}".format(pre, name))
+        logger.debug("{}Found {}".format(pre, name))
         inputs = inputs[name]
         if 'parameters' in inputs:
             # Trunk node
-            if verbose:
-                print("{}Parameter Trunk".format(pre))
+            logger.debug("{}Parameter Trunk".format(pre))
             if 'value' in inputs:
                 if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
-                    if verbose:
-                        print("{}Matched {} ({})".format(pre, name, row[name]))
+                    logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
                     match_found = True
             elif 'values' in inputs:
                 if (name in row.columns) and (row[name] in inputs['values']):
-                    if verbose:
-                        print("{}Matched {} ({})".format(pre, name, row[name]))
+                    logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
                     match_found = True
             else:
                 match_found = True
             if match_found:
                 if 'default' in inputs:
                     value = inputs['default']
-                    if verbose:
-                        print("{}: Setting value to default {}".format(pre, value))
+                    logger.debug("{}: Setting value to default {}".format(pre, value))
                 ordering = inputs['eval_order']
                 inputs = inputs['parameters']
                 for key in ordering:
-                    if verbose:
-                        print("{}Checking {}".format(pre, key))
+                    logger.debug("{}Checking {}".format(pre, key))
                     local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
                     if local_match_found:
                         match_found = True
@@ -549,48 +540,40 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
         else:
             if isinstance(inputs, list):
                 for item in inputs:
-                    if verbose:
-                        print("{}Checking list item".format(pre))
+                    logger.debug("{}Checking list item".format(pre))
                     m, v = find_value(name, item, row, default=value, pre="\t{}".format(pre), verbose=verbose)
                     if m:
                         return m, v
             elif "default" in inputs:
                 source = inputs.get("source", "[NONE PROVIDED]")
                 reason = inputs.get("reason", "[NONE PROVIDED]")
-                if verbose:
-                    msg = "{}: Using default {} from {} because {}"
-                    print(msg.format(pre, inputs["default"], source, reason))
+                msg = "{}: Using default {} from {} because {}"
+                logger.debug(msg.format(pre, inputs["default"], source, reason))
                 return True, inputs["default"]
             else:
-                if verbose:
-                    msg = "{}: ERROR: Invalid node {}"
-                    print(msg.format(pre, inputs))
+                msg = "{}: ERROR: Invalid node {}"
+                logger.warning(msg.format(pre, inputs))
     elif 'parameters' in inputs:
         # Trunk node
-        if verbose:
-            print("{}Parameter Trunk".format(pre))
+        logger.debug("{}Parameter Trunk".format(pre))
         if 'value' in inputs:
             if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
-                if verbose:
-                    print("{}Matched {} ({})".format(pre, name, row[name]))
+                logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
                 match_found = True
         elif 'values' in inputs:
             if (name in row.columns) and (row[name] in inputs['values']):
-                if verbose:
-                    print("{}Matched {} ({})".format(pre, name, row[name]))
+                logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
                 match_found = True
         else:
             match_found = True
         if match_found:
             if 'default' in inputs:
                 value = inputs['default']
-                if verbose:
-                    print("{}: Setting value to default {}".format(pre, value))
+                logger.debug("{}: Setting value to default {}".format(pre, value))
             ordering = inputs['eval_order']
             inputs = inputs['parameters']
             for key in ordering:
-                if verbose:
-                    print("{}Checking {}".format(pre, key))
+                logger.debug("{}Checking {}".format(pre, key))
                 local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
                 if local_match_found:
                     match_found = True
@@ -598,61 +581,52 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                     break
     elif 'value' in inputs:
         # Leaf node, single-expression
-        if verbose:
-            print("{}Leaf node {}".format(pre, inputs))
+        logger.debug("{}Leaf node {}".format(pre, inputs))
         if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
             match_found = True
             if "user" in inputs:
                 # user override
-                if verbose:
-                    name = inputs['user']['name']
-                    date = inputs['user']['date']
-                    result = inputs['user']['param_value']
-                    reason = inputs['user']['reason']
-                    msg = "{}User Override: {} on {} set value to {} because {}"
-                    print(msg.format(pre, name, date, result, reason))
+                name = inputs['user']['name']
+                date = inputs['user']['date']
+                result = inputs['user']['param_value']
+                reason = inputs['user']['reason']
+                msg = "{}User Override: {} on {} set value to {} because {}"
+                logger.debug(msg.format(pre, name, date, result, reason))
                 value = inputs['user']['param_value']
             else:
                 value = inputs['param_value']
-                if verbose:
-                    msg = "{}Setting {} to {} based on {} because {}"
-                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+                msg = "{}Setting {} to {} based on {} because {}"
+                logger.debug(msg.format(pre, name, value, inputs['source'], inputs['reason']))
     elif 'values' in inputs:
         # Leaf node, multi-value list
-        if verbose:
-            print("{}Leaf node {}".format(pre, inputs))
+        logger.debug("{}Leaf node {}".format(pre, inputs))
         if (name in row.columns) and (row[name] in inputs['values']):
             match_found = True
             if "user" in inputs:
                 # user override
-                if verbose:
-                    name = inputs['user']['name']
-                    date = inputs['user']['date']
-                    result = inputs['user']['param_value']
-                    reason = inputs['user']['reason']
-                    msg = "{}User Override: {} on {} set value to {} because {}"
-                    print(msg.format(pre, name, date, result, reason))
+                name = inputs['user']['name']
+                date = inputs['user']['date']
+                result = inputs['user']['param_value']
+                reason = inputs['user']['reason']
+                msg = "{}User Override: {} on {} set value to {} because {}"
+                logger.debug(msg.format(pre, name, date, result, reason))
                 value = inputs['user']['param_value']
             else:
                 value = inputs['param_value']
-                if verbose:
-                    msg = "{}Setting {} to {} based on {} because {}"
-                    print(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+                msg = "{}Setting {} to {} based on {} because {}"
+                logger.debug(msg.format(pre, name, value, inputs['source'], inputs['reason']))
     elif "default" in inputs:
         value = default
         match_found = True
         source = inputs.get("source", "[NONE PROVIDED]")
         reason = inputs.get("reason", "[NONE PROVIDED]")
-        if verbose:
-            msg = "{}: Using default {} from {} because {}"
-            print(msg.format(pre, value, source, reason))
+        msg = "{}: Using default {} from {} because {}"
+        logger.debug(msg.format(pre, value, source, reason))
     else:
-        if verbose:
-            msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
-            print(msg.format(pre, inputs, value))
+        msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
+        logger.debug(msg.format(pre, inputs, value))
     
-    if verbose:
-        print("{}Returning {} ({})".format(pre, value, match_found))
+    logger.debug("{}Returning {} ({})".format(pre, value, match_found))
     return match_found, value
 
 
@@ -698,7 +672,7 @@ def handle_parameter(name, start_value, current_value, file, row):
     if start_value != current_value:
         done = False;
         while not done:
-            print("You changed {} from {} => {}.".format(name, start_value, current_value))
+            logger.info("You changed {} from {} => {}.".format(name, start_value, current_value))
             response = input("Do you want to save this change to the data file? (y/N)")
             if response.lower() in ["y", "yes"]:
                 rname = input("Please enter a name for the change: ")
@@ -709,13 +683,13 @@ def handle_parameter(name, start_value, current_value, file, row):
                 set_override(name, config, row, rname, current_value, reason)
                 with open(file, mode="w") as outf:
                     yaml.dump(config, outf)
-                print("Changed value for {}".format(row['root']))
+                logger.info("Changed value for {}".format(row['root']))
                 done = True
             elif response.lower() in ["n", "no"]:
-                print("Value not saved.")
+                logger.info("Value not saved.")
                 done = True
             else:
-                print("Unknown response {}".format(response))
+                logger.info("Unknown response {}".format(response))
 
 
 def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
@@ -758,32 +732,28 @@ def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
                 if isinstance(item["value"], str):
                     comp_value = comp_value[:len(item["value"])]
                 if comp_value == item["value"]:
-                    if verbose:
-                        reason = item["reason"]
-                        source = item["source"]
-                        msg = "{}: changed {} {}=>{} because {} from {}"
-                        print(msg.format(pre, param, value, item["param_value"], reason, source))
+                    reason = item["reason"]
+                    source = item["source"]
+                    msg = "{}: changed {} {}=>{} because {} from {}"
+                    logger.debug(msg.format(pre, param, value, item["param_value"], reason, source))
                     value = item["param_value"]
         if param in overrides:
-            if verbose:
-                msg = "{}: changed {} {}=> by user override"
-                print(msg.format(pre, param, value, overrides[param]))
+            msg = "{}: changed {} {}=> by user override"
+            logger.debug(msg.format(pre, param, value, overrides[param]))
             value = overrides[param]
     except Exception as e:
-        print("ERROR in set_param(). Arguments are:")
-        print("\tparam={}".format(param))
-        print("\tdefault={}".format(default))
-        print("\trow:\n")
-        print(row)
-        print("\n")
-        print("\tissues:\n")
-        print(issues)
-        print("\n")
-        print("\tpre={}".format(pre))
-        print("\toverrides:\n")
-        print(overrides)
-        print("\n")
-        print("\tverbose={}".format(verbose))
+        logger.error("ERROR in set_param(). Arguments are:")
+        logger.error("\tparam={}".format(param))
+        logger.error("\tdefault={}".format(default))
+        logger.error("\trow:\n")
+        logger.error(row)
+        logger.error("\n")
+        logger.error("\tissues:\n")
+        logger.error(issues)
+        logger.error("\tpre={}".format(pre))
+        logger.error("\toverrides:\n")
+        logger.error(overrides)
+        logger.error("\tverbose={}".format(verbose))
         raise e
 
     return value
@@ -858,12 +828,8 @@ def set_image(images, row, issues, pre, overrides={}, verbose=False):
     image : tuple
         Tuple of (SCI, ERR, DQ) np.ndarray images, as edited.
     """
-#     print("set_image with {}, {}, {}, {}".format(images, row, issues, overrides))
 
     for issue in issues:
-#         print(issue)
-#         print(issue["column"], type(issue["column"]))
-#         print(row)
         found = False
         if issue["column"] in row:
             if isinstance(issue["column"], str):
@@ -883,12 +849,11 @@ def set_image(images, row, issues, pre, overrides={}, verbose=False):
             else:
                 y1, y2 = issue["y"][0], issue["y"][0]+1
             images[issue["ext"]][y1:y2,x1:x2] = issue["value"]
-            if verbose:
-                reason = issue["reason"]
-                source = issue["source"]
-                value = issue["value"]
-                msg = "{}: changed ({}:{},{}:{}) to {} because {} from {}"
-                print(msg.format(pre, y1, y2, x1, x2, value, reason, source))
+            reason = issue["reason"]
+            source = issue["source"]
+            value = issue["value"]
+            msg = "{}: changed ({}:{},{}:{}) to {} because {} from {}"
+            logger.debug(msg.format(pre, y1, y2, x1, x2, value, reason, source))
 
 
     return images
@@ -1123,7 +1088,7 @@ def linecen(wave, spec, cont):
     if len(good) > 0:
         n_good = len(good[0])
     if n_good <= 1:
-        print("WARNING: LINECEN: Bad profile, centroid set to midpoint.")
+        logger.warning("WARNING: LINECEN: Bad profile, centroid set to midpoint.")
         return wave[midpoint], "bad"
     centroid = np.sum(wave*clip)/np.sum(clip)
     return centroid, "good"

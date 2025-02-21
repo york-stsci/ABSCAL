@@ -1,0 +1,45 @@
+version: 1
+
+formatters:
+  screen:
+    format: "%(message)s"
+  simple:
+    format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  verbose:
+    format: "[%(asctime)s] %(levelname)s [%(filename)s %(name)s %(funcName)s (%(lineno)d)]: %(message)s"
+
+handlers:
+  screen:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: screen
+  debugfile:
+    class: logging.handlers.TimedRotatingFileHandler
+    when: midnight
+    backupCount: 5
+    level: DEBUG
+    formatter: verbose
+    filename: "abscal_debug.log"
+  processfile:
+    class: logging.FileHandler
+    level: INFO
+    formatter: simple
+    filename: "abscal_history.log"
+  errorfile:
+    class: logging.handlers.TimedRotatingFileHandler
+    when: midnight
+    backupCount: 5
+    level: ERROR
+    formatter: simple
+    filename: "abscal_errors.log"
+
+loggers:
+    abscal:
+        level: DEBUG
+        handlers: [screen,debugfile,processfile,errorfile]
+        propagate: yes
+
+    __main__:   
+        level: DEBUG
+        handlers: [screen,debugfile,processfile,errorfile]
+        propagate: yes
