@@ -74,14 +74,14 @@ def parse(description, default_out_file, arg_list, **kwargs):
     
     if split_output:
         out_file, out_ext = os.path.splitext(default_out_file)
-        out_name = "{}_<item>{}".format(out_file, out_ext)
+        out_name = f"{out_file}_<item>{out_ext}"
         out_help = "Output metadata file. The default value is "
-        out_help += "{} where item is 'all' for all files, 'grism' for ".format(out_name)
+        out_help += f"{out_name} where item is 'all' for all files, 'grism' for "
         out_help += "grism files (and associated filter images), 'filter' is filter "
         out_help += "files, and 'scan' is all scan-mode files."
     else:
         out_name = default_out_file
-        out_help = "Output metadata file. The default value is {}.".format(out_name)
+        out_help = f"Output metadata file. The default value is {out_name}."
     
     spec_help = "Subdirectory where extracted and co-added spectra are stored. "
     spec_help += "The default value is 'spec'."

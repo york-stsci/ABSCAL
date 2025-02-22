@@ -65,8 +65,9 @@ from scipy.linalg import lstsq
 from scipy.stats import mode
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.standard_stars import find_star_by_name
-from abscal.common.utils import air2vac, get_data_file, get_defaults, linecen
+from abscal.common.utils import air2vac, get_defaults, linecen
 from abscal.common.utils import smooth_model, tabinv
 from abscal.wfc3.reduce_grism_extract import reduce
 from abscal.wfc3.wfc3_data_table import WFC3DataTable
@@ -117,8 +118,7 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
         if isinstance(yapprox, np.ndarray):
             yapprox = yapprox[0]
         logger.debug(type(xapprox), type(yapprox))
-        msg = "WLIMAZ: 10830 line at approx ({},{})"
-        logger.debug(msg.format(xapprox, yapprox))
+        logger.debug(f"WLIMAZ: 10830 line at approx ({xapprox},{yapprox})")
 
         # Fix any DQ=8 pixels
         ns = 11 # for an 11x11 search area
@@ -134,7 +134,7 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
 
         # If all bad pixels have been zeroed, interpolate them.
         if totbad == 0:
-            logger.info("WLIMAZ: {} bad pixels repaired".format(nbad))
+            logger.info(f"WLIMAZ: {nbad} bad pixels repaired")
             for i in range(nbad):
                 xbad = bad[0][i] % ns
                 ybad = bad[0][i] / ns
@@ -160,10 +160,10 @@ def wlimaz(root, y_arr, wave_arr, directory, verbose):
 
         star_x = star_x + xapprox - ns//2
         star_y = star_y + yapprox - ns//2
-        logger.info("\tDAOFind: xc={}, yc={}".format(star_x, star_y))
+        logger.info(f"\tDAOFind: xc={star_x}, yc={star_y}")
 
         if nbad > 0:
-            logger.info("WLIMAZ: nbad={}, total bad counts={}".format(nbad, totbad))
+            logger.info(f"WLIMAZ: nbad={nbad}, total bad counts={totbad}")
         return star_x, star_y
 
 
@@ -247,8 +247,9 @@ def wlmeas(input_table, **kwargs):
 
     xpx = np.arange(1014, dtype=np.float64)
 
-    msg = "{}: Starting WFC3 wavelength measurement for GRISM data with {} inputs."
-    logger.info(msg.format(task, len(input_table)))
+    msg = f"{task}: Starting WFC3 wavelength measurement for GRISM data with "
+    msg += f"{len(input_table)} inputs."
+    logger.info(msg))
 
     roots = []
     stars = []
@@ -273,10 +274,8 @@ def wlmeas(input_table, **kwargs):
         spec_file = os.path.join(row['path'], row['extracted'])
         if not os.path.isfile(spec_file):
             # look for default extracted file
-            extracted_name = "{}_{}_x1d.fits".format(row['root'], row['target'])
-            logger.info("Extracted Name: {}".format(extracted_name))
-            extracted_dest = os.path.join(spec_dir, extracted_name)
-            logger.info("Extracted File: {}".format(extracted_dest))
+            logger.info(f"Extracted Name: {row['root']}_{row['target']}_x1d.fits")
+            logger.info(f"Extracted File: {os.path.join(spec_dir, extracted_name)}")
             
             if os.path.isfile(extracted_dest):
                 spec_file = extracted_dest
@@ -284,8 +283,9 @@ def wlmeas(input_table, **kwargs):
                 input_table['extracted'][root_filter] = extracted_value
                 row['extracted'] = extracted_value
             else:
-                msg = "{}: Unable to find extracted spectrum '{}'. Extracting."
-                logger.info(msg.format(task, row['extracted']))
+                msg = f"{task}: Unable to find extracted spectrum '{row['extracted']}'. "
+                msg += "Extracting."
+                logger.info(msg)
                 extract_table = input_table[input_table['root']==row['root']]
                 output_row = reduce(extract_table, **kwargs)
                 for item in ['path', 'extracted', 'xc', 'yc', 'xerr', 'yerr']:
@@ -294,20 +294,18 @@ def wlmeas(input_table, **kwargs):
                 spec_file = os.path.join(output_row['path'][0], 
                                          output_row['extracted'][0])
                 if not os.path.isfile(spec_file):
-                    msg = "{}: {}: ERROR: EXTRACTION FAILED. SKIPPING ROW"
-                    logger.error(msg.format(task, row['root']))
+                    msg = f"{task}: {row['root']}: ERROR: EXTRACTION FAILED. SKIPPING ROW"
+                    logger.error(msg)
                     continue
         # END search for the 1d extracted spectrum.
 
-        logger.info("{}: reducing {}".format(task, root))
-        logger.debug("\tpath is {}".format(path))
-        logger.debug("\textracted is {}".format(row["extracted"]))
-        logger.debug("\tfile is {}".format(spec_file))
+        logger.info(f"{task}: reducing {root}")
+        logger.debug(f"\tpath is {path}")
+        logger.debug(f"\textracted is {row['extracted']}")
+        logger.debug(f"\tfile is {spec_file}")
         logger.debug("\trow: ")
         logger.debug(row)
-        star = row["target"]
-        grat = row["filter"]
-        preamble = "wlmeas: {} ({}) ({})".format(root, grat, star)
+        preamble = f"wlmeas: {root} ({row['filter']}) ({row['target']})"
         with fits.open(spec_file) as inf:
             wl = inf[1].data['wavelength']
             net = inf[1].data['net']
@@ -329,12 +327,12 @@ def wlmeas(input_table, **kwargs):
 
         name = row['root'][5:9]
 
-        if grat == 'G102':
+        if row['filter'] == 'G102':
             wrang = [8900., 11100.]
-        elif grat == 'G141':
+        elif row['filter'] == 'G141':
             wrang = [10800., 17500.]
         else:
-            raise ValueError("Unknown Grating/Filter {}".format(grat))
+            raise ValueError(f"Unknown Grating/Filter {row['filter']}")
 
         pnvel = 0. # radial velocity            
         target_star = find_star_by_name(row['target'])
@@ -346,11 +344,11 @@ def wlmeas(input_table, **kwargs):
 
         for iord in [-1, 1, 2]:
 
-            dlam = fwhm[grat][iord]
+            dlam = fwhm[row['filter']][iord]
 
             # 3rd order 10830 at 32490 dominates 2nd order beyond ~16245
             # (32490/2)
-            if iord == 2 and grat == 'G141':
+            if iord == 2 and row['filter'] == 'G141':
                 wrang[1] = 13000.
 
             xline = wlref * 0.
@@ -370,7 +368,7 @@ def wlmeas(input_table, **kwargs):
 
                 # smoothed lines
                 smorud = smooth_model(wrud, pn_ref_table['flux'], dlam)
-                if grat == 'G102':
+                if row['filter'] == 'G102':
                     dw = 150/abs(iord)
                 else:
                     dw = 250/abs(iord)
@@ -389,8 +387,9 @@ def wlmeas(input_table, **kwargs):
 
                     fig = plt.figure()
                     ax = fig.add_subplot(111)
-                    title_str = "{} {} order={} line={} Search Range"
-                    ax.set_title(title_str.format(grat, root, iord, wlr))
+                    title_str = f"{row['filter']} {root} order={iord} line={wlr} Search "
+                    title_str += "Range"
+                    ax.set_title(title_str)
                     plt.plot(wl[wl_good], net[wl_good])
                     plt.plot([min_x, min_x], [net_min*0.5, net_max*1.5])
                     plt.plot([max_x, max_x], [net_min*0.5, net_max*1.5])
@@ -452,8 +451,7 @@ def wlmeas(input_table, **kwargs):
                         fig, ax = plt.subplots()
                         fig.subplots_adjust(bottom=0.2)
     
-                        title_str = "{} {} order={} line={}"
-                        ax.set_title(title_str.format(grat, root, iord, wlr))
+                        ax.set_title(f"{row['filter']} {root} order={iord} line={wlr}")
                         xrud = tabinv((wl/iord), wrud[xgdrud])
                         min_y = 0.
                         max_y = np.max(net[xgood])*1.1
@@ -544,20 +542,20 @@ def wlmeas(input_table, **kwargs):
                 line_dict[int(wv)] = xcentr
                 note_dict[int(wv)] = fit_status
 
-                logger.info("{}: Finished line {}".format(preamble, wv))
+                logger.info(f"{preamble}: Finished line {wv}")
 
             roots.append(root)
-            stars.append(star)
-            gratings.append(grat)
+            stars.append(row["target"])
+            gratings.append(row['filter'])
             x_ords.append(zxpos)
             y_ords.append(zypos)
             orders.append(iord)
             lines.append(line_dict)
             notes.append(note_dict)
 
-            logger.info("{}: Finished order {}.".format(preamble, iord))
-        logger.info("{}: Finished obs {}".format(preamble, root))
-    logger.info("{}: finished wavelength measurement.".format(preamble))
+            logger.info(f"{preamble}: Finished order {iord}.")
+        logger.info("{preamble}: Finished obs {root}")
+    logger.info("{preamble}: finished wavelength measurement.")
 
     output_table = Table()
     output_table['root'] = Column(data=roots)
@@ -580,8 +578,8 @@ def wlmeas(input_table, **kwargs):
                 note_data.append(note_dict[key])
             else:
                 note_data.append("")
-        output_table["{}_pos".format(key)] = Column(data=key_data, format='.3f')
-        output_table["{}_notes".format(key)] = Column(data=note_data)
+        output_table[f"{key}_pos"] = Column(data=key_data, format='.3f')
+        output_table[f"{key}_notes"] = Column(data=note_data)
 
     return output_table
 
@@ -663,13 +661,13 @@ def wlmake(input_table, wl_table, **kwargs):
               }
 
     for grism_index,grism in enumerate(['G102', 'G141']):
-        logger.info("{}: starting grism {}".format(task, grism))
+        logger.info(f"{task}: starting grism {grism}")
 
         mask = [g == grism for g in wl_table['grism']]
         grism_table = wl_table[mask]
 
         for iord in [-1, 1, 2]:
-            logger.debug("{}: {}: starting order {}".format(task, grism, iord))
+            logger.debug(f"{task}: {grism}: starting order {iord}")
             ord_mask = [o == iord for o in grism_table['order']]
             current_table = grism_table[ord_mask]
             xord_mask = [x > 0 for x in current_table['X_0_ORD']]
@@ -677,7 +675,7 @@ def wlmake(input_table, wl_table, **kwargs):
             emline_mask = []
             for row in current_table:
                 is_any_valid = False
-                for col in ["{}_pos".format(l) for l in line_array]:
+                for col in [f"{l}_pos" for l in line_array]:
                     if row[col] > 0:
                         is_any_valid = True
                 emline_mask.append(is_any_valid)
@@ -685,7 +683,7 @@ def wlmake(input_table, wl_table, **kwargs):
             ngood = len(current_table)
             if ngood <= 0:
                 continue
-            logger.debug("{}: {}: {}: Found {} good rows".format(task, grism, iord, ngood))
+            logger.debug(f"{task}: {grism}: {iord}: Found {ngood} good rows")
             dofil = current_table['root']
             dostr = current_table['star']
             doord = current_table['order'].data
@@ -707,29 +705,26 @@ def wlmake(input_table, wl_table, **kwargs):
             good_lines = []
             logger.debug(current_table)
             for line in visible_lines[grism]:
-                logger.info("Checking line {}".format(line))
+                logger.info(f"Checking line {line}")
                 good_fits[line] = 0
                 for row in current_table:
-                    notes_col = '{}_notes'.format(line)
+                    notes_col = f'{line}_notes'
                     if ('good' in row[notes_col]) or ('custom' in row[notes_col]):
                         good_fits[line] += 1
-                        logger.info("\tgood")
-                    else:
-                        logger.info("\tbad")
-                logger.info("{} good of {} ".format(good_fits[line], ngood),end='')
-                if good_fits[line] > 0.5*ngood:
-                    logger.info("Adding line {}.".format(line))
+                logger.debug(f"\t{good_fits[line]} good of {ngood}")
+                if good_fits[line] > 0.5 * ngood:
+                    logger.info(f"Adding line {line}."
                     good_lines.append(line)
                 else:
-                    logger.warning("Rejected.")
+                    logger.warning(f"Line {line} Rejected.")
             nline = len(good_lines)
             low_line, high_line = min(good_lines), max(good_lines)
             low_idx, high_idx = line_array.index(low_line), line_array.index(high_line)
             doxi = np.zeros((ngood, nline), dtype=np.float64)
             for i,line in enumerate(good_lines):
-                doxi[:,i] = current_table['{}_pos'.format(line)].data
-            dox1 = current_table['{}_pos'.format(low_line)].data
-            dox2 = current_table['{}_pos'.format(high_line)].data
+                doxi[:,i] = current_table[f'{line}_pos'].data
+            dox1 = current_table[f'{low_line}_pos'].data
+            dox2 = current_table[f'{high_line}_pos'].data
             ref_line = np.full((ngood,), wl_vac[low_idx, wl_index])
             disp = (wl_vac[high_idx, wl_index] - wl_vac[low_idx, wl_index]) * doord
             disp *= rvc_p1/(dox2 - dox1)
@@ -750,7 +745,7 @@ def wlmake(input_table, wl_table, **kwargs):
             b[:,1] = dozy[fit_good]            
             m = deepcopy(b)
             b[:,2] = b3rd[:]
-            logger.debug("b matrix is {}".format(b))
+            logger.debug(f"b matrix is {b}")
             b_fit,_,_,_ = lstsq(np.c_[b[:,0], b[:,1], np.ones(b.shape[0])], b[:,2])
             b_x, b_y, b_const = b_fit
             bfit = [b_const + b_x*x + b_y*y for x,y in zip(b[:,0], b[:,1])]
@@ -759,10 +754,10 @@ def wlmake(input_table, wl_table, **kwargs):
             results['b_y'].append(b_y)
             bval = b_const + b_x*506 + b_y*506 # b at (x,y) = (506,506)
             xr = [np.min(dozx[fit_good]), np.max(dozx[fit_good])] # range of 0-order points
-            logger.debug("{}: {}: {}: Z0 x-range is {}".format(task, grism, iord, xr))
-            logger.debug("\t b1={}, b2={}, b3={}".format(b_const, b_x, b_y))
+            logger.debug(f"{task}: {grism}: {iord}: Z0 x-range is {xr}")
+            logger.debug(f"\t b1={b_const}, b2={b_x}, b3={b_y}")
             m[:,2] = disp[fit_good]
-            logger.debug("m matrix is {}".format(m))
+            logger.debug(f"m matrix is {m}")
             m_fit,_,_,_ = lstsq(np.c_[m[:,0], m[:,1], np.ones(m.shape[0])], m[:,2])
             m_x, m_y, m_const = m_fit
             mfit = [m_const + m_x*x + m_y*y for x,y in zip(m[:,0], m[:,1])]
@@ -772,7 +767,7 @@ def wlmake(input_table, wl_table, **kwargs):
             mval = m_const + m_x*xpx * m_y*506
             mval = m_const + m_x*xpx * m_y*106
             mval = m_const + m_x*xpx * m_y*906
-            logger.debug("\t m1={}, m2={}, m3={}".format(m_const, m_x, m_y))
+            logger.debug(f"\t m1={m_const}, m2={m_x}, m3={m_y}")
             
             line = []
             for em_line in visible_lines[grism]:
@@ -785,8 +780,7 @@ def wlmake(input_table, wl_table, **kwargs):
                 if n_line_good <= 0:
                     break # in theory break from the entire order, but we do what we can.
                 wlerr = np.zeros((n_line_good,), np.float64)
-                msg = "{}: {}: {}: File      Xmeas (px)  Xfit   err (A)"
-                logger.info(msg.format(task, grism, iord))
+                logger.info(f"{task}: {grism}: {iord}: File      Xmeas (px)  Xfit   err (A)")
                 for igd in range(n_line_good):
                     indx = line_good[0][igd]
                     row = current_table[indx]
@@ -795,24 +789,28 @@ def wlmake(input_table, wl_table, **kwargs):
                     wnew = bval + mval*(xpx - dozx[indx])
                     xfit = tabinv(wnew, line[ilin]*iord*rvc_p1[indx])
                     wlerr[igd] = (doxi[indx,ilin] - xfit)*mval
-                    msg = "                 {} {:8.2f} {:8.2f} {:8.2f} YZO={:8.2f}"
-                    logger.info(msg.format(row['root'], doxi[indx,ilin], xfit[0], wlerr[igd], dozy[indx]))
-                msg = "Line, rms (A) and avg={}, {}, {}, #Obs={}"
-                logger.info(msg.format(line[ilin], np.std(wlerr), np.mean(wlerr), n_line_good))
+                    msg = f"                 {row['root]} {doxi[indx, ilin]:8.2f} "
+                    msg += f"{xfit[0]:8.2f} {wlerr[igd]:8.2f} YZO={dozy[indx]:8.2f}"
+                    logger.info(msg)
+                msg = f"Line, rms (A) and avg={line[ilin]}, {np.std(wlerr)}, "
+                msg += f"{np.mean(wlerr)}, #Obs={n_line_good}"
+                logger.info(msg)
             
             dmeas = m[:,2]
             bmeas = b[:,2]
             xpos, ypos = dozx, dozy
             berr = bmeas - bfit
             merr = dmeas - mfit
-            msg = "{}: {}: {}: File     ZX (px)    ZY    b fit (A)     bmeas     berr"
-            logger.info(msg.format(task, grism, iord))
+            msg = f"{task}: {grism}: {iord}: File     ZX (px)    ZY    b fit (A)     "
+            msg += "bmeas     berr"
+            logger.info(msg)
             for i in range(ngood):
                 row = current_table[i]
-                msg = "               {} {:8.2f} {:8.2f} {:8.2f} {:8.2f}  {:8.2f}"
-                logger.info(msg.format(row['root'], xpos[i], ypos[i], bfit[i], bmeas[i], berr[i]))
-            logger.info("b rms={}".format(np.std(bmeas-bfit)))
-            logger.info("m rms={}".format(np.std(dmeas-mfit)))
+                msg = f"               {row['root']} {xpos[i]:8.2f} {ypos[i]:8.2f} "
+                msg += f"{bfit[i]:8.2f} {bmeas[i]:8.2f}  {berr[i]:8.2f}"
+                logger.info(msg)
+            logger.info(f"b rms={np.std(bmeas-bfit)}")
+            logger.info(f"m rms={np.std(dmeas-mfit)}")
             
             if show_plots:
                 for igd in range(ngood):
@@ -821,8 +819,7 @@ def wlmake(input_table, wl_table, **kwargs):
                     full_file = os.path.join(full_row["path"].data[0], 
                                              full_row["extracted"].data[0])
                     if not os.path.isfile(full_file):
-                        full_name = "{}_{}_x1d.fits".format(row['root'], 
-                                                            full_row['target'].data[0])
+                        full_name = f"{row['root']}_{full_row['target'].data[0]}_x1d.fits"
                         full_file = os.path.join(spec_dir, full_name)
                     if os.path.isfile(full_file):
                         star = find_star_by_name(row['star'])
@@ -833,8 +830,9 @@ def wlmake(input_table, wl_table, **kwargs):
                             angle = inf[0].header["angle"]
                 
                         fig, ax = plt.subplots()
-                        title_str = "{} {} order={} Fitted vs. Measured Line Positions"
-                        ax.set_title(title_str.format(row['root'], grism, iord))
+                        title_str = f"{row['root']} {grism} order={iord} "
+                        title_str += "Fitted vs. Measured Line Positions"
+                        ax.set_title(title_str)
 
                         bval = b_const + b_x*dozx[igd] + b_y*dozy[igd]
                         mval = m_const + m_x*dozx[igd] + m_y*dozy[igd]
@@ -844,8 +842,8 @@ def wlmake(input_table, wl_table, **kwargs):
                         for i in range(len(wl_vac[:,wl_index])):
                             plt.plot([wl_vac[i,wl_index], wl_vac[i,wl_index]*(1+rvc)],
                                      [0., 1.e5], 'r', linestyle='dashed')
-                        msg = "Zero-order at ({:.2f},{:.2f})"
-                        plt.figtext(0.2,0.2,msg.format(dozx[igd], dozy[igd]))
+                        msg = f"Zero-order at ({doxz[igd]:.2f},{dozy[igd]:.2f})"
+                        plt.figtext(0.2, 0.2, msg)
                         plt.legend()
                         # Figure out X and Y limits
                         if grism == "G102":
@@ -859,12 +857,12 @@ def wlmake(input_table, wl_table, **kwargs):
                         plt.ylim(0, np.max(net_region)*1.1)
                         plt.show()
                 
-                        logger.info("{}: {}: {}: {}".format(task, grism, iord, row['root']))
-                        logger.info("b={}, m={}".format(bval, mval))
-                        logger.info("Measured Dispersion = {}".format(dmeas[igd]))
-                        logger.info("Measured b={}".format(bmeas[igd]))
-                        logger.info("b,m errors={}, {}".format(bval-bmeas[igd], mval-dmeas[igd]))
-                        logger.info("Angle={}".format(angle))
+                        logger.info(f"{task}: {grism}: {iord}: {row['root']}")
+                        logger.info(f"b={bval}, m={mval}")
+                        logger.info(f"Measured Dispersion = {dmeas[igd]}")
+                        logger.info(f"Measured b={bmeas[igd]}")
+                        logger.info(f"b,m errors={bval - bmeas[igd]}, {mval - dmeas[igd]}")
+                        logger.info(f"Angle={angle}")
             # done interactive plot
         # DONE ORDER LOOP
     # DONE GRISM LOOP

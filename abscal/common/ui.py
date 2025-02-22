@@ -33,16 +33,9 @@ import shutil
 import tkinter as tk
 from tkinter import ttk
 import yaml
-matplotlib.use('TkAgg')
 
-from .utils import check_params
-from .utils import get_param_types
-from .utils import get_data_file
-from .utils import get_default_params
-from .utils import return_type
-from .utils import set_override
-from .utils import setup_params
-from .utils import update_param
+from .file_utils import get_data_file
+from .utils import get_param_types, return_type, setup_params, update_param
 
 
 class AbscalRoot(tk.Tk):

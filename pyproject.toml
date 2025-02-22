@@ -58,15 +58,24 @@ Issues = "https://github.com/spacetelescope/ABSCAL/issues"
 # Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
 
 [project.scripts]
+# General Scripts
 download_mast = "abscal.common.mast:main"
+
+# STIS Interface
+stis_setup = "abscal.stis.preprocess_table_create:main"
+stis_reduce = "abscal.stis.reduce_extract:main"
+
+# WFC3 "modern" interface
 wfc3_setup = "abscal.wfc3.preprocess_table_create:main"
-wfcdir = "abscal.wfc3.preprocess_table_create:main"
 wfc3_wave = "abscal.wfc3.reduce_grism_wavelength:main"
+wfc3_coadd = "abscal.wfc3.reduce_grism_coadd:main"
+wfc3_all = "abscal.commands.wfc3_all:main"
+
+# WFC3 "idl" interface
+wfcdir = "abscal.wfc3.preprocess_table_create:main"
+prewfc = "abscal.wfc3.reduce_grism_coadd:main"
 wlmake = "abscal.wfc3.reduce_grism_wavelength:main"
 wlmeas = "abscal.wfc3.reduce_grism_wavelength:main"
-wfc3_coadd = "abscal.wfc3.reduce_grism_coadd:main"
-prewfc = "abscal.wfc3.reduce_grism_coadd:main"
-wfc3_all = "abscal.commands.wfc3_all:main"
 
 [tool.setuptools]
 include-package-data = true

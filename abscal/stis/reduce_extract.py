@@ -78,6 +78,7 @@ from stistools.defringe import mkfringeflat
 from stistools.defringe import normspflat
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.ui import AbscalFrame
 from abscal.common.ui import AbscalTask
@@ -88,8 +89,6 @@ from abscal.common.ui import TaskFrame
 from abscal.common.ui import TwoColumnWindow
 from abscal.common.utils import check_params
 from abscal.common.utils import get_value
-from abscal.common.utils import get_data_dir
-from abscal.common.utils import get_data_file
 from abscal.common.utils import get_defaults
 from abscal.common.utils import get_param_types
 from abscal.common.utils import handle_parameter
@@ -135,7 +134,7 @@ def make_hot_pixel_list(dark_file, threshold):
         y_list = hot_pixels[0]
         rate_list = sci_ext[hot_pixels]
         hot_list = [(x, y, r) for x, y, r in zip(x_list, y_list, rate_list)]
-        logger.info("Found {} hot pixels".format(len(hot_list)))
+        logger.info(f"Found {len(hot_list)} hot pixels")
 
     return hot_list
 
@@ -247,10 +246,10 @@ class CosmicRayFrame(ImageFrame):
         else:
             peaks = self.get_approximate_peak()
             if len(peaks) == 0:
-                logger.warning("{}: WARNING: no spectral trace found".format(self.data_file))
+                logger.warning(f"{self.data_file}: WARNING: no spectral trace found")
                 return y_vals
             if len(peaks) > 1:
-                logger.warning("{}: WARNING: multiple possible traces found".format(self.data_file))
+                logger.warning(f"{self.data_file}: WARNING: multiple possible traces found")
             for peak in peaks:
                 y_vals.append(np.array([peak-self.extrsize//2 for x in range(self.x_size)]))
                 y_vals.append(np.array([peak+self.extrsize//2 for x in range(self.x_size)]))
@@ -426,10 +425,10 @@ def reduce_flatfield(input_row, **kwargs):
     fname = input_row['filename']
     raw_file = os.path.join(path, fname)
     crj_file = raw_file.replace("_raw", "_crj")
-    final_file = raw_file.replace("_raw", "_{}_{}_2d".format(target, mode))
+    final_file = raw_file.replace("_raw", f"_{target}_{mode}_2d")
     wave_file = raw_file.replace("_raw", "_wav")
-    preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
-    exp_info = "{} {} {}".format(root, target, mode)
+    preamble = f"{task}: {root}: {detector} ({mode})"
+    exp_info = f"{root} {target} {mode}"
     verbose = kwargs.get("verbose", False)
     interp_hot = kwargs.get("interp_hot", True)
 
@@ -439,14 +438,14 @@ def reduce_flatfield(input_row, **kwargs):
         with open(setting_file, 'r') as inf:
             settings = yaml.safe_load(inf)
     
-    logger.info("{}: starting".format(preamble))
+    logger.info(f"{preamble}: starting")
     
     if "MAMA" in detector:
         # UV reduction. No cosmic rays issues. Just reduce
-        logger.info("{}: MAMA reduction".format(preamble))
+        logger.info(f"{preamble}: MAMA reduction")
         basic2d.basic2d(raw_file, output=final_file, verbose=verbose)
     else:
-        logger.info("{}: CCD reduction.".format(preamble))
+        logger.info(f"{preamble}: CCD reduction.")
         
         # Default calibration flag values
         # dqicorr='perform', 
@@ -524,11 +523,16 @@ def reduce_flatfield(input_row, **kwargs):
         if mode == "G750L" and "fringe" in kwargs and kwargs["fringe"] is not None:
             # Do de-fringing
             with fits.open(crj_file, mode="update") as exposure:
-                exposure[0].header["HISTORY"] = "ABSCAL: Running de-fringing with {}".format(kwargs["fringe"])
+                msg = f"ABSCAL: Running de-fringing with {kwargs['fringe']}"
+                exposure[0].header["HISTORY"] = msg
             fringe_file = os.path.join(path, kwargs["fringe"])
-            normspflat(fringe_file, do_cal=True, wavecal=wave_file)
             interim_fringe = fringe_file.replace("raw", "nsp")
+            if Path(interim_fringe).is_file():
+                Path(interim_fringe).unlink()
+            normspflat(fringe_file, do_cal=True, wavecal=wave_file)
             fringe_flat = fringe_file.replace("raw", "frr")
+            if Path(fringe_flat).is_file():
+                Path(fringe_flat).unlink()
             mkfringeflat(crj_file, interim_fringe, fringe_flat)
             defringe(crj_file, fringe_flat)
             crj_file = crj_file.replace("crj", "drj")
@@ -561,15 +565,15 @@ def reduce_flatfield(input_row, **kwargs):
                 exposure[0].header["HISTORY"] = "ABSCAL: Third pass"
         else:
             # Interpolate across hot pixels
-            logger.debug("{}: Averaging over hot pixels".format(preamble))
+            logger.debug(f"{preamble}: Averaging over hot pixels")
             hpix_params = setup_params("hpix", "stis", settings, input_row, verbose)
             hot_pixel_mapping = kwargs['hot_pixel_mapping']
             with fits.open(interim_file) as exposure:
                 dark_file = exposure[0].header["DARKFILE"]
             if dark_file not in hot_pixel_mapping:
-                logger.debug("{}: Creating mapping for {}".format(preamble, dark_file))
+                logger.debug(f"{preamble}: Creating mapping for {dark_file}")
                 hot_pixel_mapping[dark_file] = make_hot_pixel_list(dark_file, hpix_params['threshold'])
-            logger.debug("{}: Hot pixel interpolation".format(preamble))
+            logger.debug(f"{preamble}: Hot pixel interpolation")
             # 
             # The DQ "magic value" of 125 is from the original hot pixel interpolation routine
             # in IDL calstis.
@@ -602,7 +606,7 @@ def reduce_flatfield(input_row, **kwargs):
         logger.debug("{}: Running wavecal to assign SHIFT keywords")
         wavecal(final_file, wave_file, verbose=verbose)
 
-    logger.info("{}: finished".format(preamble))
+    logger.info(f"{preamble}: finished")
     
     return os.path.basename(final_file)
 
@@ -630,10 +634,10 @@ def reduce_extract(input_row, **kwargs):
     path = input_row['path']
     fname = input_row['filename']
     flt_file = os.path.join(path, input_row['flatfielded'])
-    final_file = os.path.join(path, root+"_{}_{}_x1d.fits".format(target, mode))    
-    exp_info = "{} {} {}".format(root, target, mode)
+    final_file = os.path.join(path, root+f"_{target}_{mode}_x1d.fits")    
+    exp_info = f"{root} {target} {mode}"
     verbose = kwargs.get('verbose', False)
-    preamble = "{}: {}: {} ({})".format(task, root, detector, mode)
+    preamble = f"{task}: {root}: {detector} ({mode})"
     
     settings = {}
     setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
@@ -642,9 +646,10 @@ def reduce_extract(input_row, **kwargs):
             settings = yaml.safe_load(inf)
 
     # Vignetting info
-    dist1 = "{}".format(100 + abs(float(input_row['raw_postarg']))/0.05)
+    vignetting = 100 + abs(float(input_row['raw_postarg'])) / 0.05
+    dist1 = f"{vignetting}"
 
-    logger.info("{}: starting".format(preamble))
+    logger.info(f"{preamble}: starting")
 
     # For plotting what's going on in the 2D file:
     #   - "backcorr":   f[0].header["BACKCORR"]
@@ -718,7 +723,7 @@ def reduce_extract(input_row, **kwargs):
     )
     ext_app.mainloop()
 
-    logger.info("{}: finished".format(preamble))
+    logger.info("{preamble}: finished")
 
     return os.path.basename(final_file)
 
@@ -762,7 +767,7 @@ def reduce(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
 
-    logger.info("{}: Starting STIS data reduction for spectroscopic data.".format(task))
+    logger.info(f"{task}: Starting STIS data reduction for spectroscopic data.")
 
     settings = {}
     setting_file = get_data_file("abscal.stis", os.path.basename(__file__))
@@ -774,20 +779,21 @@ def reduce(input_table, **kwargs):
         # Make sure the files are set to use the appropriate CRDS references, and that the
         # references have been appropriately retrieved.
         task_verbosity = -1
-        logger.debug("{}: Checking Reference Data".format(task))
+        logger.debug(f"{task}: Checking Reference Data")
+        if verbose:
             task_verbosity = 10
         files = [os.path.join(p,f) for p,f in zip(input_table['path'], input_table['filename'])]
         assign_bestrefs(files, sync_references=True, verbosity=task_verbosity)
     else:
-        logger.debug("{}: Skipping reference file update".format(task))
+        logger.debug(f"{task}: Skipping reference file update")
     kwargs['hot_pixel_mapping'] = {}
 
-    logger.info("{}: Starting individual file reductions".format(task))
+    logger.info(f"{task}: Starting individual file reductions")
     for row in input_table:
         root = row['root']
         target = row['target']
         mode = row['mode']
-        preamble = "{}: {}".format(task, root)
+        preamble = f"{task}: {root}"
         # lamp exposure, for de-fringing
         if target == 'TUNGSTEN':
             continue
@@ -810,47 +816,44 @@ def reduce(input_table, **kwargs):
             ext_file = os.path.join(out_dir, row['extracted'])
             if os.path.isfile(ext_file):
                 if force:
-                    msg = "{}: {}: extracted file exists. Re-extracting."
-                    logger.debug(msg.format(task, root))
+                    logger.debug(f"{task}: {root}: extracted file exists. Re-extracting.")
                 else:
-                    msg = "{}: {}: skipping extraction because file exists."
-                    logger.debug(msg.format(task, root))
+                    logger.debug(f"{task}: {root}: skipping extraction because file exists.")
                     continue
         else:
-            extracted_file_name = "{}_{}_x1d.fits".format(root, target)
+            extracted_file_name = f"{root}_{target}_x1d.fits"
             extracted_dest = os.path.join(spec_dir, extracted_file_name)
 
             # If there is already an extracted file for this input, skip.
             if os.path.isfile(extracted_dest):
                 ext_str = os.path.join(spec_dir, extracted_file_name)
                 if force:
-                    msg = "{}: {}: extracted file exists. Re-extracting."
-                    logger.debug(msg.format(task, root))
+                    logger.debug(f"{task}: {root}: extracted file exists. Re-extracting.")
                 else:
                     row['extracted'] = ext_str
-                    msg = "{}: {}: skipping extraction because file exists."
-                    logger.debug(msg.format(task, root))
+                    logger.debug(f"{task}: {root}: skipping extraction because file exists.")
                     continue
 
         # Only reduce spectroscopic data in the reduce function.
         if row['use']:
-            logger.info("{}: Starting {}".format(task, root))
-            logger.debug("{}: Flatfielding {} ({})".format(task, root, row['mode']))
+            logger.info(f"{task}: Starting {root}")
+            logger.debug("{task}: Flatfielding {root} ({row['mode']})")
             reduced_2d = reduce_flatfield(row, **kwargs)
             if reduced_2d is not None:
                 row['flatfielded'] = reduced_2d
             
-                logger.info("{}: Extracting {} ({})".format(task, root, row['mode']))
+                logger.info(f"{task}: Extracting {root} ({row['mode']})")
                 reduced_extracted = reduce_extract(row, **kwargs)
                 if reduced_extracted is not None:
                     row['extracted'] = reduced_extracted
             else:
-                logger.warning("{}: Flatfielding failed. Skipping extraction.".format(task))
+                logger.warning(f"{task}: Flatfielding failed. Skipping extraction.")
             
-            logger.info("{}: Finished {}".format(task, root))
+            logger.info(f"{task}: Finished {root}")
         else:
-            msg = "{}: Skipping {} because it's been set to don't use (reason: {})."
-            logger.info(msg.format(task, root, row['notes']))
+            msg = f"{task}: Skipping {root} because it's been set to don't use (reason:"
+            msg += f" {row['notes']})."
+            logger.info(msg)
 
     return input_table
 
@@ -880,7 +883,7 @@ def additional_args(**kwargs):
     plots_default = base_defaults['plots']
     if isinstance(plots_default, str):
         plots_default = strtobool(plots_default)
-    plots_help = "Toggle interactive mode (default {}).".format(plots_default)
+    plots_help = f"Toggle interactive mode (default {plots_default})."
     plots_args = ["-p", "--plots"]
     plots_kwargs = {'dest': 'plots', 'default': plots_default, 'help': plots_help}
     if plots_default:
@@ -893,7 +896,7 @@ def additional_args(**kwargs):
     if isinstance(ref_default, str):
         ref_default = strtobool(ref_default)
     ref_help = "Toggle whether to update reference files while running "
-    ref_help += "(default {})".format(ref_default)
+    ref_help += f"(default {ref_default})"
     ref_args = ["-r", "--ref_update"]
     ref_kwargs = {'dest': 'ref_update', 'default': ref_default, 'help': ref_help}
     if ref_default:
@@ -905,8 +908,8 @@ def additional_args(**kwargs):
     interp_default = base_defaults['interpolate_hot_pixels']
     if isinstance(interp_default, str):
         interp_default = strtobool(interp_default)
-    interp_help = "Toggle whether to interpolate over hot pixels (default {})"
-    interp_help.format(interp_default)
+    interp_help = f"Toggle whether to interpolate over hot pixels (default"
+    interp_help += f" {interp_default})"
     interp_args = ["--interpolate_hot_pixels"]
     interp_kwargs = {'dest': 'interp_hot', 'default': interp_default, 'help': interp_help}
     if interp_default:

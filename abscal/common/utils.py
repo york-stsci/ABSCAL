@@ -28,6 +28,7 @@ from ruamel.yaml import YAML
 import shutil
 from simpleeval import simple_eval
 
+from .file_utils import get_data_dir, get_data_file
 from .logging import DEFAULT_LOGGER as logger
 
 
@@ -66,192 +67,6 @@ def absdate(pstrtime):
     return dt.year + year_part/year_length
 
 
-def get_base_data_dir():
-    """
-    Find the location of the ABSCAL data files.
-    
-    ABSCAL stores both default parameters and exposure-specific corrections and settings 
-    in a number of data files. There are default copies stored internally, but they can 
-    also be stored elsewhere. The ABSCAL_DATA environment variable points to that 
-    location, although there is always a fallback to local data if a specified file does 
-    not exist elsewhere.
-    
-    Returns
-    -------
-    data_dir : str
-        The directory pointed to by ABSCAL_DATA (if both the environment variable and 
-        the directory to which it points exist)
-    """
-    if "ABSCAL_DATA" in os.environ:
-        # First look for all-capitals
-        if os.path.isdir(os.environ["ABSCAL_DATA"]):
-            return os.environ["ABSCAL_DATA"]
-    elif "abscal_data" in os.environ:
-        # Next look for all lower-case
-        if os.path.isdir(os.environ["abscal_data"]):
-            return os.environ["abscal_data"]
-    
-    # Fall back to internal
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def get_data_dir(module, subdir=None, make=False):
-    """
-    Find an internal data directory.
-    
-    Returns the path to an internal data directory based on module and (optional) 
-    subdirectory. Keeps there from being a lot of repetitive code in order 
-    to find data file paths.
-
-    Parameters
-    ----------
-    module : str
-        The module to search in, using standard dot separators (e.g.
-        abscal.wfc3)
-    subdir : str, default None
-        Subdirectory (within the data directory)
-    make : bool, default False
-        If the data directory doesn't exist, should it be created?
-
-    Returns
-    -------
-    data_path : str or None
-        Full path to the data directory. If no directory is found at the generated path, 
-        None will be returned. This is not necessarily a failure state, because (for 
-        example) a function may call for a known-issues file even though there are no 
-        current known issues (and thus no file to return). This way, the code doesn't need 
-        to be changed when there *is* a file, and a user can add a file to their local 
-        directory without needing to alter the code, because the code will just 
-        transparently find the file.
-    """
-    # /path/to/abscal (with /common/utils.py stripped off)
-    local_loc = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    current_loc = get_base_data_dir()
-        
-    module = module.replace("abscal.", "")
-    
-    # Replace '.' with path separator
-    module_path = module.replace(".", "/")
-
-    data_path = os.path.join(current_loc, module_path, "data")
-    if subdir is not None:
-        data_path = os.path.join(data_path, subdir)
-    
-    if os.path.isdir(data_path):
-        return data_path
-    elif os.path.isdir(data_path.replace(current_loc, local_loc)):
-        return data_path.replace(current_loc, local_loc)
-    elif make:
-        os.makedirs(data_path)
-        return data_path
-    return None
-
-
-def get_data_file(module, fname, subdir=None, optional=False):
-    """
-    Find an internal data file.
-    
-    Returns the path to a file named `fname` in the data directory of the
-    (sub)module named `module`. Keeps there from being a lot of repetitive code in order 
-    to find data file paths.
-
-    Parameters
-    ----------
-    module : str
-        The module to search in, using standard dot separators (e.g.
-        abscal.wfc3)
-    fname : str
-        The file name of interest
-    subdir : str, default None
-        Subdirectory (within the data directory)
-    optional : bool, default False
-        Is the file optional? If so, no error on not found.
-
-    Returns
-    -------
-    data_file : str or None
-        Full path to the data file. If no file is found at the generated path, None will 
-        be returned. This is not necessarily a failure state, because (for example) a 
-        function may call for a known-issues file even though there are no current known 
-        issues (and thus no file to return). This way, the code doesn't need to be 
-        changed when there *is* a file, and a user can add a file to their local directory 
-        without needing to alter the code, because the code will just transparently find 
-        the file.
-    """
-    # /path/to/abscal (with /common/utils.py stripped off)
-    local_loc = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    current_loc = get_base_data_dir()
-
-    data_path = get_data_dir(module, subdir)
-
-    data_file = os.path.join(data_path, fname)
-    local_file = data_file.replace(current_loc, local_loc)
-    
-    if os.path.isfile(data_file):
-        # Try for the data file (with potential user-supplied path)
-        return data_file
-    elif os.path.isfile(local_file):
-        # Fall back to the local version
-        return local_file
-
-    # This is a convenience. The exposure parameters file associated with a particular
-    # python file is that file's name with ".py" replaced with ".yaml". For example, the 
-    # util_grism_cross_correlate.py exposure parameters file would be 
-    # util_grism_cross_correlate.yaml.
-    #
-    # As such, this basically says that, if you're asking for a python file (e.g. by just 
-    # sending in __file__ to get_data_file) (recognized by the extension being ".py"), 
-    # then search for a ".yaml" file with the same name if the previous search failed.
-    if os.path.splitext(fname)[1] == ".py":
-        fname = os.path.splitext(fname)[0] + ".yaml"
-        data_file = os.path.join(data_path, fname)
-        local_file = data_file.replace(current_loc, local_loc)
-    
-        if os.path.isfile(data_file):
-            # Try for the data file (with potential user-supplied path)
-            return data_file
-        elif os.path.isfile(local_file):
-            # Fall back to the local version
-            return local_file
-
-    if not optional:
-        msg = f"ERROR: File {module}.{fname} not found at {data_file} or {local_file}.\n"
-        sys.stderr.write(msg)
-#     for i in range(5):
-#         data_file = os.path.dirname(data_file)
-#         search_str = os.path.join(data_file, "*")
-#         try:
-#             names = [os.path.basename(x) for x in glob.glob(search_str)]
-#             msg += "Directory {} contains: {}\n".format(data_file, names)
-#         except Exception as e:
-#             break
-#     raise FileNotFoundError(msg)
-    
-    # If nothing was found, return None
-    return None
-
-
-def get_cached_file(module, fname):
-    """
-    Looks in the cache directory (named 'CACHE') associated with "module" for the file 
-    named "fname". If the file exists, return it (and its path). If not, return None.
-    """
-    cache_dir = get_data_dir(module, subdir='CACHE', make=True)
-    if os.path.isfile(os.path.join(cache_dir, fname)):
-        return os.path.join(cache_dir, fname)
-    return None
-
-
-def cache_file(module, fname):
-    """
-    Store a file in the cache directory (named 'CACHE') associated with "module", assuming
-    that the file does not already exist.
-    """
-    cache_dir = get_data_dir(module, subdir='CACHE', make=True)
-    out_file = os.path.join(cache_dir, os.path.basename(fname))
-    shutil.copy(fname, out_file)
-    
-    
 def _extract_dict(input_dict, output_dict, input_keys):
     """
     Recursively extract values from a defaults dictionary.
@@ -365,72 +180,72 @@ def build_expr(value):
             # we're checking if the value contains a supplied string.
             if "length" in value["special"]:
                 l = int(value["special"].split(":")[1])
-                expr = "{}[:{}] == '{}'".format(search_column, l, search_key)
+                expr = f"{search_column}[:{l}] == '{search_key}'"
             elif value["special"] == "contains":
-                expr = "'{}' in {}".format(search_key, search_column)
+                expr = f"'{search_key}' in {search_column}"
             else:
-                logger.error("ERROR: Unknown special column type {inputs['special']}")
+                logger.error(f"ERROR: Unknown special column type {inputs['special']}")
         else:
             if wildcard_token in search_key:
-                expr = "{} in '{}'".format(search_column, search_key.replace(wildcard_token, ""))
+                expr = f"{search_column} in '{search_key.replace(wildcard_token, "")}'"
             else:
-                expr = "{} {}".format(search_column, search_key)
+                expr = f"{search_column} {search_key}"
     elif value["type"].upper() == "NOT":
         # Special case -- there will only be a single entry.
         e, s, r = build_expr(value["entries"][0])
-        expr = "not ({})".format(e)
+        expr = f"not ({e})"
         if source != "":
-            source = "{}. {}".format(source, s)
+            source = f"{source}. {s}"
         else:
             source = s
         if reason != "":
-            reason = "{}. {}".format(reason, r)
+            reason = f"{reason}. {r}"
         else:
             reason = r
     elif value["type"].upper() == "AND":
         # AND -- combine all of the sub-elements
         e, s, r = build_expr(value["entries"][0])
-        expr = "({})".format(e)
+        expr = f"({e})"
         if source != "":
-            source = "{}. {}".format(source, s)
+            source = f"{source}. {s}"
         else:
             source = s
         if reason != "":
-            reason = "{}. {}".format(reason, r)
+            reason = f"{reason}. {r}"
         else:
             reason = r
         for entry in value["entries"][1:]:
             e, s, r = build_expr(entry)
-            expr = "{} and ({})".format(expr, e)
+            expr = f"{expr} and ({e})"
             if source != "":
-                source = "{}. {}".format(source, s)
+                source = f"{source}. {s}"
             else:
                 source = s
             if reason != "":
-                reason = "{}. {}".format(reason, r)
+                reason = f"{reason}. {r}"
             else:
                 reason = r
     elif value["type"].upper() == "OR":
         # OR -- combine all of the sub-elements
         e, s, r = build_expr(value["entries"][0])
-        expr = "({})".format(e)
+        expr = f"({e})"
         if source != "":
-            source = "{}. {}".format(source, s)
+            source = f"{source}. {s}"
         else:
             source = s
         if reason != "":
-            reason = "{}. {}".format(reason, r)
+            reason = f"{reason}. {r}"
         else:
             reason = r
         for entry in value["entries"][1:]:
             e, s, r = build_expr(entry)
-            expr = "{} or ({})".format(expr, e)
+            expr = f"{expr} or ({e})"
             if source != "":
-                source = "{}. {}".format(source, s)
+                source = f"{source}. {s}"
             else:
                 source = s
             if reason != "":
-                reason = "{}. {}".format(reason, r)
+                reason = f"{reason. {r}"
             else:
                 reason = r
     
@@ -456,23 +271,23 @@ def value_eval(var, expr, pre="", verbose=False):
             expr = expr.replace(negation_char, "")
             if wildcard_char in expr:
                 expr = expr.replace(wildcard_char, "")
-                final = "not ('{}' in '{}')".format(expr, var)
-                logger.debug("{}: evaluating '{}'".format(pre, final))
+                final = f"not ('{expr}' in '{var}')"
+                logger.debug(f"{pre}: evaluating '{final}'")
                 return simple_eval(final)
             else:
-                final = "not ('{}' {})".format(var, expr)
-                logger.debug("{}: evaluating '{}'".format(pre, final))
+                final = f"not ('{var}' {expr)"
+                logger.debug(f"{pre}: evaluating '{final}'")
                 return simple_eval(final)
         elif wildcard_char in expr:
             expr = expr.replace(wildcard_char, "")
-            final = "'{}' in '{}'".format(expr, var)
-            logger.debug("{}: evaluating '{}'".format(pre, final))
+            final = f"'{expr}' in '{var}'"
+            logger.debug(f"{pre}: evaluating '{final}'")
             return simple_eval(final)
-        final = "'{}' {}".format(var, expr)
-        logger.debug("{}: evaluating '{}'".format(pre, final))
+        final = f"'{var}' {expr}"
+        logger.debug(f"{pre}: evaluating '{final}'")
         return simple_eval(final)
-    final = "{} {}".format(var, expr)
-    logger.debug("{}: evaluating '{}'".format(pre, final))
+    final = f"{var} {expr}"
+    logger.debug(f"{pre}: evaluating '{final}'")
     return simple_eval(final)
 
 
@@ -509,30 +324,30 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
     match_found = False
     
     if name in inputs:
-        logger.debug("{}Found {}".format(pre, name))
+        logger.debug(f"{pre}Found {name}")
         inputs = inputs[name]
         if 'parameters' in inputs:
             # Trunk node
-            logger.debug("{}Parameter Trunk".format(pre))
+            logger.debug(f"{pre}Parameter Trunk")
             if 'value' in inputs:
                 if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
-                    logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
+                    logger.debug(f"{pre}Matched {name} ({row[name]})")
                     match_found = True
             elif 'values' in inputs:
                 if (name in row.columns) and (row[name] in inputs['values']):
-                    logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
+                    logger.debug(f"{pre}Matched {name} ({row[name]})")
                     match_found = True
             else:
                 match_found = True
             if match_found:
                 if 'default' in inputs:
                     value = inputs['default']
-                    logger.debug("{}: Setting value to default {}".format(pre, value))
+                    logger.debug(f"{pre}: Setting value to default {value}")
                 ordering = inputs['eval_order']
                 inputs = inputs['parameters']
                 for key in ordering:
-                    logger.debug("{}Checking {}".format(pre, key))
-                    local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                    logger.debug(f"{pre}Checking {key}")
+                    local_match_found, value_found = find_value(key, inputs, row, default=value, pre=f"\t{pre}", verbose=verbose)
                     if local_match_found:
                         match_found = True
                         value = value_found
@@ -540,48 +355,48 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
         else:
             if isinstance(inputs, list):
                 for item in inputs:
-                    logger.debug("{}Checking list item".format(pre))
-                    m, v = find_value(name, item, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                    logger.debug(f"{pre}Checking list item")
+                    m, v = find_value(name, item, row, default=value, pre=f"\t{pre}", verbose=verbose)
                     if m:
                         return m, v
             elif "default" in inputs:
                 source = inputs.get("source", "[NONE PROVIDED]")
                 reason = inputs.get("reason", "[NONE PROVIDED]")
-                msg = "{}: Using default {} from {} because {}"
-                logger.debug(msg.format(pre, inputs["default"], source, reason))
+                msg = f"{pre}: Using default {inputs['default']} from {source} because "
+                msg += f"{reason}"
+                logger.debug(msg)
                 return True, inputs["default"]
             else:
-                msg = "{}: ERROR: Invalid node {}"
-                logger.warning(msg.format(pre, inputs))
+                logger.warning(f"{pre}: ERROR: Invalid node {inputs}")
     elif 'parameters' in inputs:
         # Trunk node
-        logger.debug("{}Parameter Trunk".format(pre))
+        logger.debug(f"{pre}Parameter Trunk")
         if 'value' in inputs:
             if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
-                logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
+                logger.debug(f"{pre}Matched {name} ({row[name]})")
                 match_found = True
         elif 'values' in inputs:
             if (name in row.columns) and (row[name] in inputs['values']):
-                logger.debug("{}Matched {} ({})".format(pre, name, row[name]))
+                logger.debug(f"{pre}Matched {name} ({row[name]})")
                 match_found = True
         else:
             match_found = True
         if match_found:
             if 'default' in inputs:
                 value = inputs['default']
-                logger.debug("{}: Setting value to default {}".format(pre, value))
+                logger.debug(f"{pre}: Setting value to default {value}")
             ordering = inputs['eval_order']
             inputs = inputs['parameters']
             for key in ordering:
-                logger.debug("{}Checking {}".format(pre, key))
-                local_match_found, value_found = find_value(key, inputs, row, default=value, pre="\t{}".format(pre), verbose=verbose)
+                logger.debug(f"{pre}Checking {key}")
+                local_match_found, value_found = find_value(key, inputs, row, default=value, pre=f"\t{pre}", verbose=verbose)
                 if local_match_found:
                     match_found = True
                     value = value_found
                     break
     elif 'value' in inputs:
         # Leaf node, single-expression
-        logger.debug("{}Leaf node {}".format(pre, inputs))
+        logger.debug(f"{pre}Leaf node {inputs}")
         if (name in row.columns) and (value_eval(row[name], inputs['value'], pre, verbose)):
             match_found = True
             if "user" in inputs:
@@ -590,16 +405,18 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                 date = inputs['user']['date']
                 result = inputs['user']['param_value']
                 reason = inputs['user']['reason']
-                msg = "{}User Override: {} on {} set value to {} because {}"
-                logger.debug(msg.format(pre, name, date, result, reason))
+                msg = f"{pre}User Override: {name} on {date} set value to {result}"
+                msg += f" because {reason}"
+                logger.debug(msg)
                 value = inputs['user']['param_value']
             else:
                 value = inputs['param_value']
-                msg = "{}Setting {} to {} based on {} because {}"
-                logger.debug(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+                msg = f"{pre}Setting {name} to {value} based on {inputs['source']}"
+                msg += f" because {inputs['reason']}"
+                logger.debug(msg)
     elif 'values' in inputs:
         # Leaf node, multi-value list
-        logger.debug("{}Leaf node {}".format(pre, inputs))
+        logger.debug(f"{pre}Leaf node {inputs}")
         if (name in row.columns) and (row[name] in inputs['values']):
             match_found = True
             if "user" in inputs:
@@ -608,25 +425,27 @@ def find_value(name, inputs, row, default=None, pre="", verbose=False):
                 date = inputs['user']['date']
                 result = inputs['user']['param_value']
                 reason = inputs['user']['reason']
-                msg = "{}User Override: {} on {} set value to {} because {}"
-                logger.debug(msg.format(pre, name, date, result, reason))
+                msg = f"{pre}User Override: {name} on {date} set value to {result}"
+                msg += f" because {reason}"
+                logger.debug(msg)
                 value = inputs['user']['param_value']
             else:
                 value = inputs['param_value']
-                msg = "{}Setting {} to {} based on {} because {}"
-                logger.debug(msg.format(pre, name, value, inputs['source'], inputs['reason']))
+                msg = f"{pre}Setting {name} to {value} based on {inputs['source']}"
+                msg += f" because {inputs['reason']}"
+                logger.debug(msg)
     elif "default" in inputs:
         value = default
         match_found = True
         source = inputs.get("source", "[NONE PROVIDED]")
         reason = inputs.get("reason", "[NONE PROVIDED]")
-        msg = "{}: Using default {} from {} because {}"
-        logger.debug(msg.format(pre, value, source, reason))
+        logger.debug(f"{pre}: Using default {value} from {source} because {reason}")
     else:
-        msg = "{}: ERROR: Invalid node {} with no values or parameters. Returning {}"
-        logger.debug(msg.format(pre, inputs, value))
+        msg = f"{pre}: ERROR: Invalid node {inputs} with no values or parameters."
+        msg += f" Returning {value}"
+        logger.error(msg)
     
-    logger.debug("{}Returning {} ({})".format(pre, value, match_found))
+    logger.debug(f"{pre}Returning {value} ({match_found})")
     return match_found, value
 
 
@@ -657,8 +476,7 @@ def set_override(name, inputs, row, uname, value, reason):
             # from list.
             if row['root'] in item['values']:
                 item['values'].remove(row['root'])
-    item_entry = {'value': "== '{}'".format(row['root']),
-                  'user': user_dict}
+    item_entry = {f'value': "== '{row[\'root\']}'", 'user': user_dict}
     p['root'].append(item_entry)
     
     return inputs
@@ -672,7 +490,7 @@ def handle_parameter(name, start_value, current_value, file, row):
     if start_value != current_value:
         done = False;
         while not done:
-            logger.info("You changed {} from {} => {}.".format(name, start_value, current_value))
+            logger.info(f"You changed {name} from {start_value} => {current_value}.")
             response = input("Do you want to save this change to the data file? (y/N)")
             if response.lower() in ["y", "yes"]:
                 rname = input("Please enter a name for the change: ")
@@ -683,13 +501,13 @@ def handle_parameter(name, start_value, current_value, file, row):
                 set_override(name, config, row, rname, current_value, reason)
                 with open(file, mode="w") as outf:
                     yaml.dump(config, outf)
-                logger.info("Changed value for {}".format(row['root']))
+                logger.info(f"Changed value for {row['root']}")
                 done = True
             elif response.lower() in ["n", "no"]:
                 logger.info("Value not saved.")
                 done = True
             else:
-                logger.info("Unknown response {}".format(response))
+                logger.info(f"Unknown response {response}")
 
 
 def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
@@ -734,26 +552,27 @@ def set_param(param, default, row, issues, pre, overrides={}, verbose=False):
                 if comp_value == item["value"]:
                     reason = item["reason"]
                     source = item["source"]
-                    msg = "{}: changed {} {}=>{} because {} from {}"
-                    logger.debug(msg.format(pre, param, value, item["param_value"], reason, source))
+                    msg = f"{pre}: changed {param} {value}=>{item['param_value]} because"
+                    msg += f" {reason} from {source}"
+                    logger.debug(msg)
                     value = item["param_value"]
         if param in overrides:
-            msg = "{}: changed {} {}=> by user override"
-            logger.debug(msg.format(pre, param, value, overrides[param]))
+            msg = f"{pre}: changed {param} {value}=>{overrides[param]} by user override"
+            logger.debug(msg)
             value = overrides[param]
     except Exception as e:
         logger.error("ERROR in set_param(). Arguments are:")
-        logger.error("\tparam={}".format(param))
-        logger.error("\tdefault={}".format(default))
+        logger.error(f"\tparam={param}")
+        logger.error(f"\tdefault={default}")
         logger.error("\trow:\n")
         logger.error(row)
         logger.error("\n")
         logger.error("\tissues:\n")
         logger.error(issues)
-        logger.error("\tpre={}".format(pre))
+        logger.error(f"\tpre={pre}")
         logger.error("\toverrides:\n")
         logger.error(overrides)
-        logger.error("\tverbose={}".format(verbose))
+        logger.error(f"\tverbose={verbose}")
         raise e
 
     return value
@@ -852,8 +671,9 @@ def set_image(images, row, issues, pre, overrides={}, verbose=False):
             reason = issue["reason"]
             source = issue["source"]
             value = issue["value"]
-            msg = "{}: changed ({}:{},{}:{}) to {} because {} from {}"
-            logger.debug(msg.format(pre, y1, y2, x1, x2, value, reason, source))
+            msg = f"{pre}: changed ({y1}:{y2},{x1}:{x2}) to {value} because {reason}"
+            msg += f" from {source}"
+            logger.debug(msg)
 
 
     return images

@@ -59,9 +59,10 @@ from astropy.time import Time
 from copy import deepcopy
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.standard_stars import find_star_by_name, find_closest_star
-from abscal.common.utils import absdate, get_data_file, get_defaults
+from abscal.common.utils import absdate, get_defaults
 from abscal.stis.stis_data_table import STISDataTable
 
 def get_target_name(header):
@@ -156,11 +157,11 @@ def populate_table(data_table=None, **kwargs):
     task = "create_table"
 
     for path in paths:
-        logger.debug("{}: searching {}...".format(task, path))
+        logger.debug(f"{task}: searching {path}...")
         all_files = glob.glob(os.path.join(path, file_template))
         
         for file_name in all_files:
-            logger.debug("{}: adding {}".format(task, file_name))
+            logger.debug(f"{task}: adding {file_name}")
             loc = "START"
             file_metadata = {}
 
@@ -216,7 +217,7 @@ def populate_table(data_table=None, **kwargs):
                     if file_metadata['gain'] == 0.:
                         file_metadata['gain'] = phdr.get('CCDGAIN4', 0.)
                     if 'CCD' in file_metadata['detector'].upper():
-                        file_metadata['detector'] = 'CCDgain{}'.format(file_metadata['gain'])
+                        file_metadata['detector'] = f'CCDgain{file_metadata["gain"]}')
                         if phdr['CCDAMP'][:1].upper() != 'D':
                             file_metadata['root'] += phdr['CCDAMP'][:1].upper()
                     file_metadata['raw_postarg'] = phdr['POSTARG2']
@@ -224,7 +225,7 @@ def populate_table(data_table=None, **kwargs):
                         m1 = phdr.get("MOFFSET1", 0.)
                         m2 = phdr.get("MOFFSET2", 0.)
                         if m1 != 0. and m2 != 0.:
-                            file_metadata['postarg'] = "{},{}px".format(m1, m2)
+                            file_metadata['postarg'] = f"{m1},{m1}px"
                         # FUV MAMA POSTARG
                         if "G140L" in file_metadata['mode'].upper():
                             spt_file_name = base_name.replace(file_ext, 'spt')
@@ -237,8 +238,8 @@ def populate_table(data_table=None, **kwargs):
                                     else:
                                         file_metadata['postarg'] = '+3pos'
                             else:
-                                msg = "{}: {}: WARNING: spt file not found"
-                                logger.warning(msg.format(task, root))
+                                msg = f"{task}: {root}: WARNING: spt file not found"
+                                logger.warning(msg)
                                 msg = "G140L x1d file with no postarg information."
                                 file_metadata['notes'] += msg
                     
@@ -250,7 +251,7 @@ def populate_table(data_table=None, **kwargs):
                     loc = "PARSING DATE"
                     date = fits_file[1].header['date-obs']
                     time = fits_file[1].header['time-obs']
-                    date_str = "{}T{}".format(date, time)
+                    date_str = f"{date}T{time}"
                     file_metadata['date'] = Time(date_str)
 
                     ra = phdr['RA_TARG']
@@ -274,12 +275,12 @@ def populate_table(data_table=None, **kwargs):
                     corrected_dec = epoch_dec + delta_dec/3600.
                     new_ra = (corrected_ra, 'Updated for PM by ABSCAL')
                     new_dec = (corrected_dec, 'Updated for PM by ABSCAL')
-                    msg = "{}: {}: Target Star: {}"
-                    logger.debug(msg.format(task, root, file_metadata['target']))
-                    logger.debug("\tEpoch RA,DEC = {},{}".format(epoch_ra, epoch_dec))
-                    logger.debug("\tTime Since Epoch = {}".format(delta_from_epoch))
-                    logger.debug("\tDelta RA,DEC = {},{}".format(delta_ra, delta_dec))
-                    logger.debug("\tFinal RA,DEC = {},{}".format(corrected_ra, corrected_dec))
+                    msg = f"{task}: {root}: Target Star: {file_metadata['target']}"
+                    logger.debug(msg))
+                    logger.debug(f"\tEpoch RA,DEC = {epoch_ra},{epoch_dec}")
+                    logger.debug(f"\tTime Since Epoch = {delta_from_epoch}")
+                    logger.debug(f"\tDelta RA,DEC = {delta_ra},{delta_dec}")
+                    logger.debug(f"\tFinal RA,DEC = {corrected_ra},{corrected_dec}")
                 else:
                     msg = file_metadata['target'] + " not a STIS standard star" 
                     new_target = (file_metadata['target'], msg)
@@ -295,12 +296,12 @@ def populate_table(data_table=None, **kwargs):
                 loc = "DONE"
                     
             except Exception as e:
-                logger.error("{}: {}: ERROR: {} {}".format(task, file_name, e, loc))
+                logger.error(f"{task}: {file_name}: ERROR: {e} {loc}")
                 for key in data_table.columns:
                     if key not in file_metadata:
-                        logger.error("\t{} missing".format(key))
-                msg = "ERROR: Exception {} while processing.".format(str(e))
-                file_metadata['notes'] += " {}".format(msg)
+                        logger.error(f"\t{key} missing")
+                msg = f"ERROR: Exception {e} while processing."
+                file_metadata['notes'] += f" {msg}"
             
             data_table.add_exposure(file_metadata)
     
@@ -312,8 +313,7 @@ def populate_table(data_table=None, **kwargs):
         data_table.adjust(adjustments)
 
     if data_table.n_exposures == 0:
-        error_str = "Error: no files found for filespec {}"
-        raise ValueError(error_str.format(file_template))
+        raise ValueError(f"Error: no files found for filespec {file_template}")
     
     data_table.sort(['root'])
     return data_table
@@ -345,8 +345,8 @@ def additional_args(**kwargs):
     dup_help += "duplicates if they have the same ipppssoot). Valid values are "
     dup_help += "'both' (keep both), 'preserve' (keep first), 'replace' (keep "
     dup_help += "second), and 'neither' (delete both). Duplicates should only "
-    dup_help += "be an issue if an input table is specified. Default: {}"
-    dup_help = dup_help.format(base_defaults['duplicates'])
+    dup_help += "be an issue if an input table is specified. Default:"
+    dup_help += f" {base_defaults['duplicates']}"
     dup_args = ['--duplicates']
     dup_kwargs = {'dest': 'duplicates', 'help': dup_help, 
                   'default': base_defaults['duplicates']}
@@ -420,7 +420,7 @@ def main(**kwargs):
         values specified here.
     """
     dt_str = datetime.datetime.now().strftime("%Y-%m-%d")
-    kwargs['default_output_file'] = 'stis_spec_{}.log'.format(dt_str)
+    kwargs['default_output_file'] = f'stis_spec_{dt_str}.log'
     
     res = parse_args(**kwargs)
     

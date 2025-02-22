@@ -40,8 +40,8 @@ within the module itself::
                 reduce_grism_wavelength.yaml
                 util_filter_locate_image.yaml
 
-Note that, if a data file is fetched by :code:`abscal.common.utils.get_data_file()` then 
-the :code:`data` directory will be automatically appended to whatever module path is 
+Note that, if a data file is fetched by :code:`abscal.common.file_utils.get_data_file()`
+then the :code:`data` directory will be automatically appended to whatever module path is 
 supplied to the function. If, instead, it is fetched by the 
 :code:`abscal.common.utils.get_defaults()` function, then both :code:`data` and 
 :code:`defaults` directories are automatically appended.

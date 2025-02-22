@@ -68,8 +68,8 @@ def scan_rate_formatter(scan_rate):
     scan_rate_str : str
         The scan rate, formatted as a four-decimal-place floating point, and left-aligned.
     """
-    scan_rate_str = "{:6.4f}".format(scan_rate)
-    return "{:<9}".format(scan_rate_str)
+    scan_rate_str = f"{scan_rate:6.4f}"
+    return f"{scan_rate_str:<9}"
 
 
 class WFC3DataTable(AbscalDataTable):
@@ -133,7 +133,7 @@ class WFC3DataTable(AbscalDataTable):
                 self["filter_root"][base_mask] = minimum_time_row["root"]
             else:
                 msg = "No corresponding filter exposure found."
-                self["notes"][base_mask] += " {}".format(msg)
+                self["notes"][base_mask] += f" {msg}"
                 self["filter_root"][base_mask] = "NONE"
         return
        
@@ -157,9 +157,9 @@ class WFC3DataTable(AbscalDataTable):
             elif filter == 'grism':
                 table = WFC3DataTable._grism_filter(table)
             else:
-                logger.warning("Warning: Unknown filter {}".format(filter))
+                logger.warning(f"Warning: Unknown filter {filter}")
         else:
-            logger.warning("Warning: Unknown filter {}".format(filter))
+            logger.warning(f"Warning: Unknown filter {filter}")
             table = filter(table)
 
         return table

@@ -28,7 +28,7 @@ import yaml
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 
-from abscal.common.utils import get_data_file
+from .file_utils import get_data_file
 
 starlist_data = get_data_file('abscal.common', 'standard_stars.yaml')
 with open(starlist_data, 'r') as inf:

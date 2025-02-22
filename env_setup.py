@@ -48,17 +48,11 @@ def set_var(name, value, setup_file, remove_file):
     - Restore any existing variable that was created
     """
     with open(setup_file, 'a+') as f:
-        write_str = 'export {}_CONDA_BACKUP='.format(name)
-        write_str += '${'+name+':-}\n'
-        write_str += 'export {0}={1}\n'.format(name, value)
-        f.write(write_str)
+        f.write(f'export {name}_CONDA_BACKUP=${{{name}:-}}\nexport {name}={value}\n')
 
     with open(remove_file, 'a+') as f:
-        write_str = 'export {}='.format(name)
-        write_str += "${" + "{}_CONDA_BACKUP:-".format(name) + '}\nunset '
-        write_str += "{}_CONDA_BACKUP\n".format(name)
-        f.write(write_str)
-        f.write('if [ -z ${0} ]; then\n    unset {0}\nfi\n'.format(name))
+        f.write(f"export {name}=${{{name}_CONDA_BACKUP:-}}\nunset {name}_CONDA_BACKUP\n")
+        f.write(f'if [ -z ${name} ]; then\n    unset {name}\nfi\n')
 
 
 def main(**kwargs):
@@ -67,8 +61,8 @@ def main(**kwargs):
     
     conf = config['base']
     
-    msg = "Creating {} environment for python {}\n"
-    sys.stdout.write(msg.format(conf['name'], conf['python_version']))
+    msg = f"Creating {conf['name']} environment for python {conf['python_version']}\n"
+    sys.stdout.write(msg)
     
     sys.stdout.write("Fetching latest tag from github.\n")
     try:
@@ -77,8 +71,8 @@ def main(**kwargs):
         stenv_tag = json_data['tag_name']
         
         if stenv_tag > conf["latest_known_tag"]:
-            msg = "Updating latest tag from {} to {}\n"
-            sys.stdout.write(msg.format(conf['latest_known_tag'], stenv_tag))
+            msg = f"Updating latest tag from {conf['latest_known_tag']} to {stenv_tag}\n"
+            sys.stdout.write(msg)
             
             ryaml = YAML()
             with open("env_config.yml") as inf:
@@ -87,15 +81,15 @@ def main(**kwargs):
             with open("env_config.yml", mode="w") as outf:
                 ryaml.dump(new_config, outf)
     except Exception as e:
-        sys.stderr.write("Retrieval error: {}\n".format(e))
+        sys.stderr.write(f"Retrieval error: {e}\n")
         stenv_tag = conf["latest_known_tag"]
-        sys.stdout.write("\tFalling back to tag {}\n".format(stenv_tag))
+        sys.stdout.write(f"\tFalling back to tag {stenv_tag}\n")
     
-    sys.stdout.write("Latest STENV is {}.\n".format(stenv_tag))
+    sys.stdout.write(f"Latest STENV is {stenv_tag}.\n")
     
     telescope = conf['telescope']
     
-    sys.stdout.write("Setting up an environment for {} use".format(telescope))
+    sys.stdout.write(f"Setting up an environment for {telescope} use")
     
     # Find the platform we're running on. Currently support Linux and MacOS, because that's
     # what ``stenv`` supports
@@ -112,17 +106,14 @@ def main(**kwargs):
         stenv_sys = "Linux"
         arch_sys = "Linux"
     else:
-        msg = "ERROR: stenv only supports macOS and Linux, not {}\n."
-        sys.stderr.write(msg.format(system))
+        sys.stderr.write(f"ERROR: stenv only supports macOS and Linux, not {system}\n.")
         sys.exit(1)
     
     machine = platform.machine()
     
-    sys.stdout.write("Running on a {} {} system.\n".format(stenv_sys, machine))
+    sys.stdout.write(f"Running on a {stenv_sys} {machine} system.\n")
     
-    stenv_url = "{0}/{1}/stenv-{2}-py{3}-{1}.yaml"
-    stenv_url = stenv_url.format(conf['stenv_url'], stenv_tag, stenv_sys, 
-        conf['python_version'])
+    stenv_url = f"{conf['stenv_url']}/{stenv_tag}/stenv-{stenv_sys}-py{conf['python_version']}-{stenv_tag}.yaml"
     
     # Check if we need to install conda
     if shutil.which("conda") is None:
@@ -141,30 +132,18 @@ def main(**kwargs):
     conda_cmd = os.path.join(conda_prefix, "bin", "conda-env")
     pip_install_prefix = ['conda', 'run', '-n', conf['name'], 'python', '-m', 'pip', 'install']
     
-    sys.stdout.write("Initializing {} from {}.\n".format(conf['name'], stenv_url))
+    sys.stdout.write(f"Initializing {conf['name']} from {stenv_url}.\n")
     
     env_path = os.path.join(conda_prefix, "envs", conf['name'])
     if os.path.exists(env_path):
-        msg = "ERROR: conda environment {} already exists. You must delete your "
-        msg += "existing environment before creating a new one.\n"
+        msg = f"ERROR: conda environment {conf['name']} already exists. You must delete "
+        msg += "your existing environment before creating a new one.\n"
         sys.stderr.write(msg)
         sys.exit(1)
     
     # Create basic STENV environment
-    if system == "Darwin" and arch == "arm":
-        sys.stdout.write("Creating initial empty environment.\n")
-        base_conda_cmd = os.path.join(conda_prefix, "bin", "conda")
-        subprocess.run([base_conda_cmd, "create", "-n", conf['name'], 'python={}'.format(conf['python_version'])])
-        sys.stdout.write("Installing numpy with apple silicon acceleration.\n")
-        subprocess.check_call(pip_install_prefix+['numpy'])
-        sys.stdout.write("Configuring conda.\n")
-        subprocess.run(["conda", "config", "--set", "pip_interop_enabled", "true"])
-        sys.stdout.write("Updating environment from URL.\n")
-        subprocess.run(["conda", "env", "update", "--name", conf['name'], "--file", stenv_url])
-    else:
-        sys.stdout.write("Creating initial environment from URL.\n")
-        subprocess.run([conda_cmd, "create", "-n", conf['name'], "--file", stenv_url], 
-                       env=os.environ.copy())
+    sys.stdout.write("Creating initial environment from URL.\n")
+    subprocess.run([conda_cmd, "create", "-n", conf['name'], "--file", stenv_url], env=os.environ.copy())
 
     # Elaborate with additional configuration
     if "local_env" in conf:
@@ -177,28 +156,28 @@ def main(**kwargs):
                         sys.stdout.write("Installing local module with pip.\n")
                         subprocess.check_call(pip_install_prefix+['-e', os.getcwd()])
                     else:
-                        sys.stdout.write("Installing {} with pip.\n".format(package))
+                        sys.stdout.write("Installing {package} with pip.\n")
                         subprocess.check_call(pip_install_prefix+[package])
 # This is commented out because currently the constructed STENV is at least sometimes
 # inconsistent, and so I'm installing pip things manually.
-#         msg = "Updating {} environment from local file {}.\n"
-#         sys.stdout.write(msg.format(conf['name'], conf['local_env']))
+#         msg = f"Updating {conf['name']} environment from local file {conf['local_env]}.\n"
+#         sys.stdout.write(msg)
 #         subprocess.run([conda_cmd, "update", "--name", conf['name'], "--file", 
 #             conf['local_env']], env=os.environ.copy())
     
     activate_path = os.path.join(env_path, "etc", "conda", "activate.d")
     if not os.path.exists(activate_path):
         os.makedirs(activate_path)
-    activate_file = os.path.join(activate_path, "{}_activate.sh".format(conf['name']))
+    activate_file = os.path.join(activate_path, f"{name}_activate.sh")
 
     deactivate_path = os.path.join(env_path, "etc", "conda", "deactivate.d")
     if not os.path.exists(deactivate_path):
         os.makedirs(deactivate_path)
-    deactivate_file = os.path.join(deactivate_path, "{}_deactivate.sh".format(conf['name']))
+    deactivate_file = os.path.join(deactivate_path, f"{conf['name']}_deactivate.sh")
     
     # Set up info variables for the environment
-    set_var('{}_version'.format(conf['name']), conf['package_version'], activate_file, deactivate_file)
-    set_var('{}_date'.format(conf['name']), conf['env_date'], activate_file, deactivate_file)
+    set_var(f'{conf["name"]}_version', conf['package_version'], activate_file, deactivate_file)
+    set_var(f'{conf["name"]}_date', conf['env_date'], activate_file, deactivate_file)
     set_var('stenv_version', stenv_tag, activate_file, deactivate_file)
         
     if 'env' in config:
@@ -209,21 +188,21 @@ def main(**kwargs):
         if 'special' in config['env']:
             if "package" in config['env']['special']:
                 # Add the local module
-                spkg = os.path.join(env_path, "lib", "python{}".format(conf['python_version']),
+                spkg = os.path.join(env_path, "lib", f"python{conf['python_version']}",
                                     "site-packages")
-                if os.path.isfile(os.path.join(spkg, "{}.egg-link".format(conf['package_name']))):
+                if os.path.isfile(os.path.join(spkg, f"{conf['package_name']}.egg-link")):
                     # Editable installation.
-                    with open(os.path.join(spkg, "{}.egg-link".format(conf['package_name']))) as f:
+                    with open(os.path.join(spkg, f"{conf['package_name']}.egg-link")) as f:
                         var_value = f.readline().strip()
                 else:
                     var_value = os.path.join(spkg, conf['package_name'])
-                var_name = "{}_PKG".format(conf['package_name'])
+                var_name = f"{conf['package_name']}_PKG"
                 set_var(var_name, var_value, activate_file, deactivate_file)
             if 'CRDS_PATH' in config['env']['special']:
                 # This is important because, especially for internal STScI people, the CRDS
                 # cache path isn't *quite* the same as it is otherwise.
                 if internal_crds:
-                    value = '/grp/crds/{}'.format(telescope)
+                    value = f'/grp/crds/{telescope}'
                 elif 'CRDS_PATH' not in os.environ:
                     value = '$HOME/crds_cache'
                 else:
@@ -235,16 +214,15 @@ def main(**kwargs):
                 set_var('CRDS_PATH', '$HOME/crds_cache', activate_file, deactivate_file)
             for item in config['env']['crds_vars']:
                 if internal_crds:
-                    value = '$CRDS_PATH/references/{}'.format(telescope)
+                    value = f'$CRDS_PATH/references/{telescope}'
                 else:
-                    value = '$CRDS_PATH/references/{}/{}'.format(telescope, item)
+                    value = f'$CRDS_PATH/references/{telescope}/{item}'
                 set_var(item, value, activate_file, deactivate_file)
         
         if 'vars' in config['env']:
             for item in config['env']['vars']:
                 for key in item:
-                    msg = "Adding environment variable {}={}\n"
-                    sys.stdout.write(msg.format(key, item[key]))
+                    sys.stdout.write(f"Adding environment variable {key}={item[key]}\n")
                     set_var(key, item[key], activate_file, deactivate_file)
 
 

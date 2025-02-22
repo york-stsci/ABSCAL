@@ -102,8 +102,9 @@ class AbscalDataTable(Table):
         
         if initial_table is not None:
             if data is not None:
-                msg = "ERROR: Supplied both initial data {} and input file {}"
-                raise ValueError(msg.format(data, initial_table))
+                msg = f"ERROR: Supplied both initial data {data} and input file "
+                msg += f"{initial_table}"
+                raise ValueError(msg)
             data = self._read_file_to_table(initial_table, False, **kwargs)
         else:
             if data is None:
@@ -138,7 +139,7 @@ class AbscalDataTable(Table):
             The populated table
         """
         parse_str = "%y-%m-%d %H:%M:%S"
-        parse_creation_date = "{} %d-%b-%Y %H:%M:%S".format(cls.idl_str)
+        parse_creation_date = f"{cls.idl_str} %d-%b-%Y %H:%M:%S"
 
         # Read in the IDL-format table as undifferentiated ASCII
         idl_table = ascii.read(table_file, 
@@ -165,19 +166,18 @@ class AbscalDataTable(Table):
             for col_name in cls.column_mappings.keys():
                 row_data[cls.column_mappings[col_name]] = row[col_name]
             row_data['obset'] = row_data['root'][:6]
-            file_name = '{}_{}'.format(row_data['root'], search_pattern[-8:])
+            file_name = '{row_data["root"]}_{search_pattern[-8:]}'
             if len(glob.glob(os.path.join(search_path, row_data['root']+'*.fits'))) > 0:
                 row_data['path'] = search_path
                 for ext in cls.idl_exts:
-                    file_name = '{}_{}.fits'.format(row_data['root'], ext)
+                    file_name = f'{row_data["root"]}_{ext}.fits'
                     if os.path.isfile(os.path.join(search_path, file_name)):
                         row_data['filename'] = file_name
                         break
             if 'IMG SIZE' in row:
                 row_data['xsize'] = int(row['IMG SIZE'][:4].strip())
                 row_data['ysize'] = int(row['IMG SIZE'][5:].strip())
-            row_data['date'] = dt.strptime("{} {}".format(row["DATE"], row["TIME"]), 
-                                           parse_str)
+            row_data['date'] = dt.strptime(f"{row['DATE']} {row['TIME']}", parse_str) 
             if 'POSTARG X,Y' in row:
                 row_data['postarg1'] = float(row["POSTARG X,Y"][:5].strip())
                 row_data['postarg2'] = float(row["POSTARG X,Y"][8:].strip())
@@ -281,8 +281,7 @@ class AbscalDataTable(Table):
                 self.remove_rows(remove_mask)
                 return False
             else:
-                msg = "ERROR: Unknown duplicate policy '{}'"
-                raise ValueError(msg.format(self.duplicates))
+                raise ValueError(f"ERROR: Unknown duplicate policy '{self.duplicates}'")
         else:
             self.add_row(vals=metadata_dict)
         
@@ -325,20 +324,17 @@ class AbscalDataTable(Table):
         adjustments : dict
             Dictionary of adjustments
         """
-        # We want to be able to output the reason for removal (if any)
-        removal_str = "Removed for {} ({})."
-        
         # There may be exposures that are just bad, and need to not be used. Rather than
         # remove those rows, we set the "use" flag to False. We also add the reason that
         # the exposure needed to be removed, as found in the adjustment dictionary.
         for item in adjustments['delete']:
             expression, source, reason = build_expr(item)
-            explanation = removal_str.format(source, reason)
+            explanation = f"Removed for {source} ({reason})."
             for row in self:
                 if simple_eval(expression, names=row):
                     row["use"] = False
                     if row["notes"] != "":
-                        row["notes"] = "{}. {}".format(row["notes"], explanation)
+                        row["notes"] = f"{row['notes']}. {explanation}"
                     else:
                         row["notes"] = explanation
         
@@ -363,17 +359,15 @@ class AbscalDataTable(Table):
                 elif operation == "append":
                     # Value is just the text to be appended
                     column = masked[item["column"]]
-                    new_col = ["{}{}".format(x, item["value"]) for x in column]
+                    new_col = ["{x}{item['value']}" for x in column]
                 elif operation == "add":
                     # Value is interpreted as a float
                     column = masked[item["column"]]
                     new_col = [x + float(item["value"]) for x in column]
                 masked[item["column"]][:] = new_col[:]
-                reason = "Edited {} by {} {} because {} ({})."
-                reason = reason.format(item["column"], item["operation"],
-                                       item["value"], item["reason"],
-                                       item["source"])
-                new_notes = ["{} {}".format(x, reason) for x in masked["notes"]]
+                reason = f"Edited {item['column']} by {item['operation']}"
+                reason += f" {item['value']} because {item['reason']} by {item['source]}."
+                new_notes = [f"{x} {reason}" for x in masked["notes"]]
                 masked["notes"][:] = new_notes[:]
         
         return
@@ -430,12 +424,12 @@ class AbscalDataTable(Table):
             return
 
         table.comments = []
-        table.comments.append("Start time: {}".format(date_str))
+        table.comments.append(f"Start time: {date_str}")
         for dir in self.search_dirs:
             search_str = os.path.join(dir, self.search_str)
-            table.comments.append("Searched {}".format(search_str))
+            table.comments.append(f"Searched {search_str}")
         for filter in filters:
-            table.comments.append("Filtered by: {}".format(filter))
+            table.comments.append(f"Filtered by: {filter}")
 
         # Write the table out
         table.metadata = table.comments        
@@ -444,7 +438,7 @@ class AbscalDataTable(Table):
         if idl_mode:
             # Also write an IDL-compatible version of the table
             file_ext = Path(file_name).suffix
-            file_name = file_name.replace(file_ext, '_idl{}'.format(file_ext))
+            file_name = file_name.replace(file_ext, f'_idl{file_ext}')
             self._write_to_idl(file_name, table, create_time=self.create_time,
                                search_dirs=self.search_dirs,
                                search_str = self.search_str)
@@ -577,7 +571,7 @@ class AbscalDataTable(Table):
             elif column == "IMG SIZE":
                 xsize = table["xsize"]
                 ysize = table["ysize"]
-                data = ["{:4d}x{:4d}".format(x,y) for x,y in zip(xsize,ysize)]
+                data = [f"{x:4d}x{y:4d}" for x,y in zip(xsize,ysize)]
             elif column == "DATE":
                 data = [d.strftime("%y-%m-%d") for d in dates]
             elif column == "TIME":
@@ -585,10 +579,9 @@ class AbscalDataTable(Table):
             elif column == "POSTARG X,Y":
                 p1 = table["postarg1"]
                 p2 = table["postarg2"]
-                data = ["{:6.1f}, {:6.1f}".format(x,y) for x,y in zip(p1,p2)]
+                data = [f"{x:6.1f}, {y:6.1f}" for x,y in zip(p1,p2)]
             else:
-                msg = "Trying to create nonexistent column {}".format(column)
-                raise ValueError(msg)
+                raise ValueError(f"Trying to create nonexistent column {column}")
             format = column_formats[column]
             idl_table[column] = Column(data, name=column, format=format)
         
@@ -611,10 +604,10 @@ class AbscalDataTable(Table):
         with open(file_name, 'r+') as table_file:
             content = table_file.read()
             table_file.seek(0, 0)
-            table_file.write("# {} {}\n".format(self.idl_str, date_str))
+            table_file.write(f"# {self.idl_str} {date_str}\n")
             for search_dir in search_dirs:
                 full_search_str = os.path.join(search_dir, search_str)
-                table_file.write("# SEARCH FOR {}\n".format(full_search_str))
+                table_file.write(f"# SEARCH FOR {full_search_str}\n")
             table_file.write(content)
 
         return

@@ -59,8 +59,9 @@ from astropy.time import Time
 from copy import deepcopy
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.standard_stars import find_star_by_name, find_closest_star
-from abscal.common.utils import absdate, get_data_file, get_defaults
+from abscal.common.utils import absdate, get_defaults
 from .wfc3_data_table import WFC3DataTable
 
 def get_target_name(header):
@@ -155,11 +156,11 @@ def populate_table(data_table=None, **kwargs):
     task = "create_table"
 
     for path in paths:
-        logger.debug("{}: searching {}...".format(task, path))
+        logger.debug(f"{task}: searching {path}...")
         all_files = glob.glob(os.path.join(path, file_template))
         
         for file_name in all_files:
-            logger.debug("{}: adding {}".format(task, file_name))
+            logger.debug(f"{task}: adding {file_name}")
             loc = "START"
             file_metadata = {}
 
@@ -190,7 +191,7 @@ def populate_table(data_table=None, **kwargs):
 
                     date = phdr['date-obs']
                     time = phdr['time-obs']
-                    date_str = "{}T{}".format(date, time)
+                    date_str = f"{date}T{time}"
                     file_metadata['date'] = Time(date_str)
                     file_metadata['postarg1'] = phdr['POSTARG1']
                     file_metadata['postarg2'] = phdr['POSTARG2']
@@ -215,18 +216,18 @@ def populate_table(data_table=None, **kwargs):
                             else:
                                 file_metadata['scan_rate'] = 0.
                                 msg = "SPT header had no SCAN_RAT keyword."
-                                file_metadata['notes'] += " {}".format(msg)
+                                file_metadata['notes'] += f" {msg}"
                             pstrtime = spt_hdr0['PSTRTIME']
                             delta_from_epoch = absdate(pstrtime) - 2000.
                     else:
-                        msg = "{}: Could not find SPT file for {}. "
+                        msg = f"{task}: Could not find SPT file for {base_name}. "
                         msg += "Setting scan rate to 0."
-                        logger.warning(msg.format(task, base_name))
+                        logger.warning(msg)
                         expstart = Time(phdr["EXPSTART"], format='mjd')
                         pstrtime = expstart.datetime.strftime("%Y.%j:%H:%M:%S")
                         delta_from_epoch = absdate(expstart) - 2000.
                         file_metadata['scan_rate'] = 0.
-                        file_metadata['notes'] += " {}".format(msg)
+                        file_metadata['notes'] += f" {msg}"
                 
                 loc = "ASSEMBLING WRITE DATA"
                 new_target = (file_metadata['target'], 'Updated by ABSCAL')
@@ -246,12 +247,11 @@ def populate_table(data_table=None, **kwargs):
                     corrected_dec = epoch_dec + delta_dec/3600.
                     new_ra = (corrected_ra, 'Updated for PM by ABSCAL')
                     new_dec = (corrected_dec, 'Updated for PM by ABSCAL')
-                    msg = "{}: {}: Target Star: {}"
-                    logger.debug(msg.format(task, root, file_metadata['target']))
-                    logger.debug("\tEpoch RA,DEC = {},{}".format(epoch_ra, epoch_dec))
-                    logger.debug("\tTime Since Epoch = {}".format(delta_from_epoch))
-                    logger.debug("\tDelta RA,DEC = {},{}".format(delta_ra, delta_dec))
-                    logger.debug("\tFinal RA,DEC = {},{}".format(corrected_ra, corrected_dec))
+                    logger.debug(f"{task}: {root}: Target Star: {file_metadata['target']}")
+                    logger.debug(f"\tEpoch RA,DEC = {epoch_ra},{epoch_dec}")
+                    logger.debug(f"\tTime Since Epoch = {delta_from_epoch}")
+                    logger.debug(f"\tDelta RA,DEC = {delta_ra},{delta_dec}")
+                    logger.debug(f"\tFinal RA,DEC = {corrected_ra},{corrected_dec}")
                 else:
                     file_metadata['planetary_nebula'] = False
                     msg = file_metadata['target'] + " not a WFC3 standard star" 
@@ -270,12 +270,11 @@ def populate_table(data_table=None, **kwargs):
                 loc = "DONE"
                     
             except Exception as e:
-                logger.error("{}: {}: ERROR: {} {}".format(task, file_name, e, loc))
+                logger.error(f"{task}: {file_name}: ERROR: {e} {loc}")
                 for key in data_table.columns:
                     if key not in file_metadata:
-                        logger.error("\t{} missing".format(key))
-                msg = "ERROR: Exception {} while processing.".format(str(e))
-                file_metadata['notes'] += " {}".format(msg)
+                        logger.error(f"\t{key} missing")
+                file_metadata['notes'] += f" ERROR: Exception {e} while processing."
             
             data_table.add_exposure(file_metadata)
     
@@ -289,8 +288,7 @@ def populate_table(data_table=None, **kwargs):
         data_table.adjust(adjustments)
 
     if data_table.n_exposures == 0:
-        error_str = "Error: no files found for filespec {}"
-        raise ValueError(error_str.format(file_template))
+        raise ValueError(f"Error: no files found for filespec {file_template}")
     
     data_table.sort(['root'])
     return data_table
@@ -322,8 +320,8 @@ def additional_args(**kwargs):
     dup_help += "duplicates if they have the same ipppssoot). Valid values are "
     dup_help += "'both' (keep both), 'preserve' (keep first), 'replace' (keep "
     dup_help += "second), and 'neither' (delete both). Duplicates should only "
-    dup_help += "be an issue if an input table is specified. Default: {}"
-    dup_help = dup_help.format(base_defaults['duplicates'])
+    dup_help += "be an issue if an input table is specified. Default:"
+    dup_help += f" {base_defaults['duplicates']}"
     dup_args = ['--duplicates']
     dup_kwargs = {'dest': 'duplicates', 'help': dup_help, 
                   'default': base_defaults['duplicates']}
@@ -424,7 +422,7 @@ def main(**kwargs):
                     }
     for table_type in table_types:
         filters = table_filters[table_type]
-        table_fname = "{}_{}{}".format(base_file, table_type, file_ext)
+        table_fname = f"{base_file}_{table_type}{file_ext}"
         table.write_to_file(table_fname, res.compat, filters=filters)
 
 

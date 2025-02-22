@@ -50,8 +50,9 @@ from copy import deepcopy
 from scipy.signal import medfilt2d
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
-from abscal.common.utils import get_data_file, set_param
+from abscal.common.utils import set_param
 
 
 def locate_image(input_table, **kwargs):
@@ -84,8 +85,7 @@ def locate_image(input_table, **kwargs):
     task = "locate_image"
     verbose = kwargs.get('verbose', False)
     show_plots = kwargs.get('show_plots', False)
-    msg = "{}: Starting WFC3 image location check for FILTER data."
-    logger.info(msg.format(task))
+    logger.info(f"{task}: Starting WFC3 image location check for FILTER data.")
 
     issues = {}
     exposure_parameter_file = get_data_file("abscal.wfc3", os.path.basename(__file__))
@@ -97,10 +97,10 @@ def locate_image(input_table, **kwargs):
         root = row['root']
         target = row['target']
         filter = row['filter']
-        preamble = "{}: {}".format(task, root)
+        preamble = f"{task}: {root}"
         # Only locate filter data in the locate_image function.
         if row['use'] and row['filter'][0] == 'F':
-            logger.debug("{}: Locating image for {}".format(task, root))
+            logger.debug(f"{task}: Locating image for {root}")
             input_file = os.path.join(row['path'], row['filename'])
             crval1 = row['crval1']
             crval2 = row['crval2']
@@ -127,14 +127,13 @@ def locate_image(input_table, **kwargs):
                 targ = img_wcs.wcs_world2pix([ra], [dec], 0, ra_dec_order=True)
                 xastr, yastr = targ[0][0], targ[1][0]
                 xappr, yappr = int(round(xastr)), int(round(yastr))
-                msg = "{}: {} has image astrometry position ({},{})"
-                logger.debug(msg.format(task, root, xastr, yastr))
+                msg = f"{task}: {root} has image astrometry position ({xastr},{yastr})"
+                logger.debug(msg)
                 if show_plots:
                     fig = plt.figure()
                     ax = fig.add_subplot(111)
-                    targ_str = "{} - {} ({})".format(root, target, filter)
-                    title_str = "{}: Direct Image with Predicted Source"
-                    ax.set_title(title_str.format(targ_str))
+                    targ_str = f"{root} - {target} ({filter})"
+                    ax.set_title(f"{targ_str}: Direct Image with Predicted Source")
                     plt.imshow(np.log10(np.where(data>=0.1, data, 0.1)), origin='lower')
                     plt.plot([xastr, xastr], [yastr-8, yastr-18], color='white')
                     plt.plot([xastr, xastr], [yastr+8, yastr+18], color='white')
@@ -146,8 +145,7 @@ def locate_image(input_table, **kwargs):
                     if (xappr <=3) or (xappr >= data.shape[1]-4):
                         row['xc'] = 0
                         row['yc'] = 0
-                        msg = "{}: {}: target at edge. Set xc=yc=0."
-                        logger.debug(msg.format(task, root))
+                        logger.debug(f"{task}: {root}: target at edge. Set xc=yc=0.")
                         continue
                 
                 if xstar != 0 or ystar != 0:
@@ -160,7 +158,7 @@ def locate_image(input_table, **kwargs):
                 data[:max(yappr-35,0),:] = 0.
                 data[min(yappr+35,data.shape[0]-1):,:] = 0.
                 
-                np_formatter = {'float_kind':lambda x: "{:10.4f}".format(x)}
+                np_formatter = {'float_kind':lambda x: f"{x:10.4f}"}
                 np_opt = {'max_line_width': 175, 'formatter': np_formatter}
                 
                 # Perform a median filter of the data.
@@ -207,12 +205,12 @@ def locate_image(input_table, **kwargs):
                 row['xerr'] = xerr
                 row['yerr'] = yerr
                 
-                msg = "{}: {}: image position ({},{}) with error ({},{})"
-                logger.info(msg.format(task, root, xc, yc, xerr, yerr))
+                msg = f"{task}: {root}: image position ({xc},{yc}) with error ({xerr},{yerr})"
+                logger.info(msg)
                 
         else:
-            msg = "{}: Skipping {} because it's been set to don't use "
-            msg += "(reason: {})."
-            logger.warning(msg.format(task, root, row['notes']))
+            msg = f"{task}: Skipping {root} because it's been set to don't use "
+            msg += "(reason: {row['notes']})."
+            logger.warning(msg)
     
     return input_table

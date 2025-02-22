@@ -71,9 +71,10 @@ from pathlib import Path
 from scipy.stats import mode
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
 from abscal.common.ui import PlotLegendWindow
-from abscal.common.utils import get_data_file, get_defaults, set_params
+from abscal.common.utils import get_defaults, set_params
 from abscal.wfc3.reduce_grism_extract import reduce
 from abscal.wfc3.reduce_grism_extract import additional_args as extract_args
 from abscal.wfc3.util_grism_cross_correlate import cross_correlate
@@ -175,8 +176,8 @@ def coadd(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
 
-    logger.info("{}: Starting WFC3 coadd for GRISM data.".format(task))
-    logger.debug("{}: Input table is:".format(task))
+    logger.info(f"{task}: Starting WFC3 coadd for GRISM data.")
+    logger.debug(f"{task}: Input table is:")
     logger.debug(input_table)
 
     # 32 and 512 OK "per icqv02i3q RCB 2015may26"
@@ -191,7 +192,7 @@ def coadd(input_table, **kwargs):
 
     unique_obs = sorted(list(set(input_table['obset'])))
     
-    logger.info("{}: Found {} unique obsets: {}".format(task, len(unique_obs), unique_obs))
+    logger.info(f"{task}: Found {len(unique_obs)} unique obsets: {unique_obs}")
     
     output_table = deepcopy(input_table)
 
@@ -207,7 +208,7 @@ def coadd(input_table, **kwargs):
         for filter in filters:
             filter_mask = [g == filter for g in masked_table['filter']]
             filter_table = masked_table[filter_mask]
-            preamble = "{}: {}: {}".format(task, obs, filter)
+            preamble = f"{task}: {obs}: {filter}"
             if len(filter_table) == 0:
                 continue
             n_obs = len(filter_table)
@@ -215,27 +216,26 @@ def coadd(input_table, **kwargs):
             coadded_file = filter_table[0]['coadded']
             if (not is_masked(coadded_file)) and (os.path.isfile(os.path.join(out_dir, coadded_file))):
                 coadded_file = filter_table[0]['coadded']
-                msg = "{}: {} co-added file {} found. Skipping."
-                logger.debug(msg.format(task, obs, coadded_file))
+                logger.debug(f"{task}: {obs} co-added file {coadded_file} found. Skipping.")
                 continue
             else:
                 # Manually check for file name
                 prefix = kwargs.get('prefix', target)
                 if prefix is None:
                     prefix = target
-                out_file_name = '{}_{}_{}.fits'.format(prefix, filter, obs)
+                out_file_name = f'{prefix}_{filter}_{obs}.fits'
                 out_file = os.path.join(spec_dir, out_file_name)
                 
                 if os.path.isfile(out_file):
-                    msg = "{}: {} co-added file {} found. Skipping."
-                    logger.debug(msg.format(task, obs, out_file_name))
+                    msg = f"{task}: {obs} co-added file {out_file_name} found. Skipping."
+                    logger.debug(msg)
                     out_mask = (output_table['obset'] == obs) & \
                                 (output_table['filter'] == filter)
                     output_table["coadded"][out_mask] = out_file
                     continue
 
-            logger.info("{}: Co-adding {}".format(task, obs))
-            logger.debug("{}: {} table for {} is:".format(task, obs, filter))
+            logger.info(f"{task}: Co-adding {obs}")
+            logger.debug(f"{task}: {obs} table for {filter} is:")
             logger.debug(filter_table)
             st = ''
 
@@ -259,7 +259,7 @@ def coadd(input_table, **kwargs):
                 spec_file = row['extracted']
                 if is_masked(spec_file) or not os.path.isfile(os.path.join(row['path'], spec_file)):
                     # look for default extracted file
-                    extracted_name = "{}_{}_x1d.fits".format(row['root'], row['target'])
+                    extracted_name = f"{row['root']}_{row['target']}_x1d.fits"
                     extracted_dest = os.path.join(spec_dir, extracted_name)
                     
                     if os.path.isfile(extracted_dest):
@@ -268,8 +268,9 @@ def coadd(input_table, **kwargs):
                         output_table['extracted'][root_filter] = extracted_value
                         row['extracted'] = extracted_value
                     else:
-                        msg = "{}: Unable to find extracted spectrum '{}'. Extracting."
-                        logger.warning(msg.format(preamble, row['extracted']))
+                        msg = f"{preamble}: Unable to find extracted spectrum"
+                        msg += f" '{row['extracted']}'. Extracting."
+                        logger.warning(msg)
                         extract_table = input_table[input_table['root']==row['root']]
                         output_row = reduce(extract_table, **kwargs)
                         logger.debug("Extraction Output is:")
@@ -280,8 +281,9 @@ def coadd(input_table, **kwargs):
                         spec_file = os.path.join(output_row['path'][0], 
                                                  output_row['extracted'][0])
                         if not os.path.isfile(spec_file):
-                            msg = "{}: {}: ERROR: EXTRACTION FAILED. SKIPPING ROW"
-                            logger.error(msg.format(preamble, row['root']))
+                            msg = f"{preamble}: {row['root']}: ERROR: EXTRACTION FAILED."
+                            msg += " SKIPPING ROW"
+                            logger.error(msg)
                             continue
                 # END search for the 1d extracted spectrum.
                 
@@ -358,8 +360,7 @@ def coadd(input_table, **kwargs):
             # end of for row in filter_table
 
             if len(spec_wave) == 0:
-                msg = "{}: ERROR: No spectra found for {} {}"
-                logger.error(msg.format(preamble, filter, target))
+                logger.error(f"{preamble}: ERROR: No spectra found for {filter} {target}")
                 continue
             f_good = deepcopy(spec_net)
             mask = np.where((spec_eps & flags) == 0, 1, 0).astype('int32')
@@ -391,8 +392,7 @@ def coadd(input_table, **kwargs):
             tmrg = np.array((), dtype='float64')    # merged exptime array
 
             for iord in [-1, 1, 2]:
-                msg = "{}: Starting Co-Add for Order {}"
-                logger.debug(msg.format(preamble, iord))
+                logger.debug(f"{preamble}: Starting Co-Add for Order {iord}")
                 ireg += 1
                 wb = wbeg * iord
                 we = wend * iord
@@ -410,13 +410,14 @@ def coadd(input_table, **kwargs):
                     if (np.max(spec_wave[j,:]) >= (we-d10)) and (spec_wave[j,0] <= (wb+d10)) or ((mask.shape[0] == 128) and (iord == 1)):
                         jgood[j] = j
                 if np.max(jgood) < 0:
-                    msg = "{}: No Good Data in wavelength range ({},{}) "
-                    msg += "for order {}"
-                    logger.warning(msg.format(preamble, wbeg, wend, iord))
+                    msg = f"{preamble}: No Good Data in wavelength range ({wbeg},{wend}) "
+                    msg += f"for order {iord}"
+                    logger.warning(msg)
                     continue
                 igood = np.where(jgood>=0)[0]
-                msg = "{}: {} spectra to cross-correlate for order={}."
-                logger.info(msg.format(preamble, len(igood), iord))
+                msg = f"{preamble}: {len(igood)} spectra to cross-correlate for"
+                msg += f" order={iord}."
+                logger.info(msg)
 
                 # find approximate offset between spectra using input wavelength scales
                 # and actual offsets using cross correlation
@@ -469,9 +470,9 @@ def coadd(input_table, **kwargs):
                         ie = np.searchsorted(wl1, wecm)
                         if ib > ie:
                             raise ValueError("Wavelength range start>end.")
-                        msg = "{}: Cross-correlate WL range {}-{} for "
-                        msg += "order {}"
-                        logger.debug(msg.format(preamble, wbcm, wecm, iord))
+                        msg = f"{preamble}: Cross-correlate WL range {wbcm}-{wecm} for "
+                        msg += f"order {iord}"
+                        logger.debug(msg)
 
                         # Cross-correlate
                         # 
@@ -485,8 +486,7 @@ def coadd(input_table, **kwargs):
                                                           row,
                                                           **kwargs)
                         except Exception as e:
-                            msg = "{}: ERROR in Cross-correlation: {}"
-                            logger.error(msg.format(preamble, e))
+                            logger.error(f"{preamble}: ERROR in Cross-correlation: {e}")
                             # Maybe should just exclude? If so, how?
                             offset = 0
                             arr = []
@@ -495,40 +495,34 @@ def coadd(input_table, **kwargs):
                         #   not enough coverage, so offset -> 0.
                         if (wend-wbeg) - abs((we-wb)/iord) > 1000:
                             offset = 0
-                        msg = "{}: {} vs. {} shift={} for order {}"
                         f0 = os.path.basename(spec_files[igood[0]])
                         f1 = os.path.basename(spec_files[igood[i]])
-                        logger.debug(msg.format(preamble, f0, f1, offset, iord))
+                        msg = f"{preamble}: {f0} vs. {f1} shift={offset} for order {iord}"
+                        logger.debug(msg)
 
                         if abs(offset) > 2.7 and show_plots:
                             fig = plt.figure()
                             ax = fig.add_subplot(111)
-                            plot_title = '{} {} spectra {} and {} for order {} '
-                            plot_title += 'with offset {}'
-                            plot_title = plot_title.format(obs, filter,
-                                                           igood[0]+1,
-                                                           igood[i]+1,
-                                                           iord, offset)
+                            plot_title = f'{obs} {filter} spectra {igood[0]+1} and"
+                            plot_title += f" {igood[1]+1} for order {iord} '
+                            plot_title += f'with offset {offset}'
                             ax.set_title(plot_title)
                             plt.xlim(wb, we)
-                            spec_label = "Spectrum {}".format(igood[0]+1)
-                            ax.plot(wl1, net1, label=spec_label)
-                            spec_label = "Spectrum {} with wave from {}"
-                            spec_label = spec_label.format(igood[i]+1,
-                                                           igood[0]+1)
+                            ax.plot(wl1, net1, label=f"Spectrum {igood[0]+1}")
+                            spec_label = f"Spectrum {igood[i]+1} with wave from"
+                            spec_label += f" {igood[0]+1}"
                             ax.plot(wl1, neti, label=spec_label)
                             w = spec_wave[igood[i],:][0]
                             f = f_good[igood[i],:][0]
-                            spec_label = "Spectrum {} with wave from {}"
-                            spec_label = spec_label.format(igood[i]+1,
-                                                           igood[i]+1)
+                            spec_label = f"Spectrum {igood[i]+1} with wave from"
+                            spec_label += f" {igood[i]+1}"
                             ax.plot((w + offset*delam), f, label=spec_label)
                             ax.legend()
                             plt.show()
-                            msg = "{}: offset {} found is too high, so "
+                            msg = f"{preamble}: offset {offset} found is too high, so "
                             msg += "cross-correlation offset set to zero for "
-                            msg += "order={}"
-                            logger.warning(msg.format(preamble, offset, iord))
+                            msg += f"order={iord}"
+                            logger.warning(msg)
                             offset = 0
 
                         wcor[i,:] = spec_wave[igood[i],:] + offset*delam
@@ -565,8 +559,7 @@ def coadd(input_table, **kwargs):
                         ind = np.where((w >= rb) & (w < re))
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
-                        title = 'Uncorrected Wavelengths for {} ({}) order {}'
-                        ax.set_title(title.format(obs, filter, iord))
+                        ax.set_title(f'Uncorrected Wavelengths for {obs} ({filter}) order {iord}')
                         plt.xlim(xrang)
                         plt.ylim(0, np.max(spec_net[igood[0],ind]))
                         w = spec_wave[igood[0],ind][0]
@@ -577,7 +570,7 @@ def coadd(input_table, **kwargs):
                             ind = np.where((w >= rb) & (w < re))
                             w = spec_wave[igood[i],ind][0]
                             n = spec_net[igood[i],ind][0]
-                            ax.plot(w/1.e4, n, label='Spectrum {}'.format(i+1))
+                            ax.plot(w/1.e4, n, label=f'Spectrum {i+1}')
                         ax.legend()
                         plt.show()
 
@@ -585,20 +578,17 @@ def coadd(input_table, **kwargs):
                         ind = np.where((wcor[0,:] >= rb) & (wcor[0,:] < re))
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
-                        title = 'Corrected Wavelengths for {} ({}) order {}'
-                        ax.set_title(title.format(obs, filter, iord))
+                        ax.set_title(f'Corrected Wavelengths for {obs} ({filter}) order {iord}')
                         w = wcor[0,ind][0]
                         n = spec_net[igood[0],ind][0]
                         plt.xlim(xrang)
                         plt.ylim(0, np.max(n))
-                        spec_label = 'Spectrum {}'.format(igood[0]+1)
-                        ax.plot(w/1.e4, n, label=spec_label)
+                        ax.plot(w/1.e4, n, label=f'Spectrum {igood[0] + 1}')
                         for i in range(1, ngood):
                             ind = np.where((wcor[i,:] >= rb) & (wcor[i,:] < re))
                             w = wcor[i,ind]
                             n = spec_net[igood[i],ind]
-                            spec_label = 'Spectrum {}'.format(igood[i]+1)
-                            ax.plot(w[0]/1.e4, n[0], label=spec_label)
+                            ax.plot(w[0]/1.e4, n[0], label=f'Spectrum {igood[1] + 1}')
                         ax.legend()
                         plt.show()
 
@@ -613,15 +603,14 @@ def coadd(input_table, **kwargs):
                         ind_bad = np.where((wl_bad >= rb) & (wl_bad < re))
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
-                        title = 'DQ Plot for {} ({}) order {}'
-                        ax.set_title(title.format(obs, filter, iord))
+                        ax.set_title(f'DQ Plot for {obs} ({filter}) order {iord}')
                         plt.xlim(xrang)
                         w, f = wl_cor[ind], fcor1[ind]
-                        spec_label = 'Spectrum {}'.format(igood[0]+1)
+                        spec_label = f'Spectrum {igood[0] + 1}'
                         ax.scatter(w/1.e4, f, s=1., marker='.', label=spec_label)
                         wb, fb = wl_bad[ind_bad], fbad[ind_bad]
-                        spec_label = 'Spectrum {} bad DQ'.format(igood[0]+1)
-                        ax.scatter(wb/1.e4, fb, s=1., marker='x', c='r', label='Bad DQ')
+                        spec_label = f'Spectrum {igood[0] + 1} bad DQ'
+                        ax.scatter(wb/1.e4, fb, s=1., marker='x', c='r', label=spec_label)
                         for i in range(1, ngood):
                             good_mask = np.where(mask[igood[i],:]>0)
                             bad_mask = np.where(mask[igood[i],:]==0)
@@ -632,11 +621,11 @@ def coadd(input_table, **kwargs):
                             ind = np.where((wl_cor >= rb) & (wl_cor < re))
                             ind_bad = np.where((wl_bad >= rb) & (wl_bad < re))
                             w, f = wl_cor[ind], fcor1[ind]
-                            spec_label = 'Spectrum {}'.format(igood[i]+1)
+                            spec_label = f'Spectrum {igood[i] + 1}'
                             ax.scatter(w/1.e4, f, s=1., marker='.', label=spec_label)
                             wb, fb = wl_bad[ind_bad], fbad[ind_bad]
-                            spec_label = 'Spectrum {} bad DQ'.format(igood[i]+1)
-                            ax.scatter(wb/1.e4, fb, s=1., marker='x', c='r')
+                            spec_label = f'Spectrum {igood[i] + 1} bad DQ'
+                            ax.scatter(wb/1.e4, fb, s=1., marker='x', c='r', label=spec_label)
                         ax.legend()
                         plt.show()
 
@@ -770,14 +759,13 @@ def coadd(input_table, **kwargs):
             if prefix is None:
                 prefix = target
             Path(spec_dir).mkdir(parents=True, exist_ok=True)
-            out_file_name = '{}_{}_{}'.format(prefix, filter, obs)
+            out_file_name = f'{prefix}_{filter}_{obs}'
             out_file = os.path.join(spec_dir, out_file_name)
 
             if show_plots:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                spec_title = '{} {} ({}) Co-added Spectra'
-                ax.set_title(spec_title.format(obs, target, filter))
+                ax.set_title(f'{obs} {target} ({filter}) Co-added Spectra')
                 plt.xlabel("Wavelength (micron)")
                 plt.ylabel("Count Rate (electrons/s)")
                 ax.plot(wmrg/1.e4, nmrg, label='net')
@@ -798,13 +786,13 @@ def coadd(input_table, **kwargs):
             t['exposure_time'] = tmrg
             t.meta['comments'] = []
             t.meta['comments'].append('Gross and Back columns have Flat Field applied.')
-            t.meta['comments'].append('Written by prewfc/wfc_coadd at {}'.format(now))
+            t.meta['comments'].append(f'Written by prewfc/wfc_coadd at {now}')
             co_added_roots = ",".join([r for r in filter_table['root']])
-            t.meta['comments'].append('Co-add list={}'.format(co_added_roots))
-            t.meta['comments'].append('Target={}'.format(target))
-            t.meta['comments'].append('Filter={}'.format(filter))
-            t.meta['comments'].append('Observation Set={}'.format(obs))
-            t.meta['comments'].append('Date={}'.format(filter_table['date'][0]))
+            t.meta['comments'].append(f'Co-add list={co_added_roots}')
+            t.meta['comments'].append(f'Target={target}')
+            t.meta['comments'].append(f'Filter={filter}')
+            t.meta['comments'].append(f'Observation Set={obs}')
+            t.meta['comments'].append(f'Date={filter_table["date"][0]}')
             t.write(out_file+'.tbl', format='ascii.ipac', overwrite=True)
             t.write(out_file+'.fits', format='fits', overwrite=True)
 
@@ -817,9 +805,9 @@ def coadd(input_table, **kwargs):
                     row['coadded'] = coadd_file
                     output_table['coadded'][output_table['root']==row['root']] = coadd_col
 
-            logger.info("{}: Finished filter.".format(preamble))
-        logger.info("{}: {}: Finished obs".format(task, obs))
-    logger.info("{}: finished co-add".format(task))
+            logger.info(f"{preamble}: Finished filter.")
+        logger.info(f"{task}: {obs}: Finished obs")
+    logger.info(f"{task}: finished co-add")
 
     return output_table
 
@@ -847,8 +835,8 @@ def additional_args(**kwargs):
     table_kwargs = {'help': table_help}
     additional_args['table'] = (table_args, table_kwargs)
 
-    double_help = "Subsample output wavelength vector by a factor of 2 (default {})."
-    double_help = double_help.format(base_defaults['double'])
+    double_help = "Subsample output wavelength vector by a factor of 2 (default"
+    double_help += f" {base_defaults['double']})."
     double_args = ["-d", "--double"]
     double_kwargs = {'help': double_help, 'default': base_defaults['double'],
                      'action': 'store_true', 'dest': 'double'}
@@ -860,8 +848,7 @@ def additional_args(**kwargs):
                      'dest': 'prefix'}
     additional_args['prefix'] = (prefix_args, prefix_kwargs)
 
-    plots_help = "Include result plots while running (default {})."
-    plots_help = plots_help.format(base_defaults['plots'])
+    plots_help = f"Include result plots while running (default {base_defaults['plots']})."
     plots_args = ["-p", "--plots"]
     plots_kwargs = {'dest': 'plots', 'action': 'store_true', 
                     'default': base_defaults['plots'], 'help': plots_help}

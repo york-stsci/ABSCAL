@@ -20,14 +20,14 @@ from pathlib import Path
 import sys
 import yaml
 
-from .utils import get_data_file
+from .file_utils import get_data_file
 
 
 def get_default_logger(log_name=__name__):
     """
     Create and configure a logger, then return that logger
     """
-    log_config_file = get_data_file("abscal.common", "logging_config.yaml")
+    logging_config_file = get_data_file("abscal.common", "logging_config.yaml")
     with open(logging_config_file, "rt") as f:
         logging_config = yaml.safe_load(f.read())
 

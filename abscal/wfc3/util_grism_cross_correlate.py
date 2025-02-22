@@ -45,8 +45,9 @@ from copy import deepcopy
 from scipy import signal
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
-from abscal.common.utils import get_data_file, get_defaults, set_params
+from abscal.common.utils import get_defaults, set_params
 
 
 def cross_correlate(s1, s2, row, **kwargs):
@@ -74,9 +75,9 @@ def cross_correlate(s1, s2, row, **kwargs):
     verbose = kwargs.get('verbose', False)
     task = "cross_correlate"
     base_name = os.path.basename(__file__)
-    preamble = "{}: {}".format(task, row['root'][0])
+    preamble = f"{task}: {rot['root'][0]}"
 
-    logger.info("{}: Starting WFC3 cross-correlation of GRISM data.".format(task))
+    logger.info(f"{task}: Starting WFC3 cross-correlation of GRISM data.")
 
     issues = {}
     exposure_parameter_file = get_data_file("abscal.wfc3", base_name, optional=True)
@@ -96,8 +97,7 @@ def cross_correlate(s1, s2, row, **kwargs):
     it2_end = int(min((params['i2'] - approx - width2), len(s1)-1))
     nt = it2_end - it2_start + 1
     if nt < 1:
-        msg = "{}: region too small, width too large, or ishift too large."
-        logger.info(msg.format(task))
+        logger.info(f"{task}: region too small, width too large, or ishift too large.")
         return 0., None
     template2 = s2[it2_start:it2_end+1]
     
@@ -116,21 +116,21 @@ def cross_correlate(s1, s2, row, **kwargs):
         sig1 = np.sqrt(np.sum((template1-mean1)**2))
         diff1 = template1 - mean1
         if (sig1 == 0) or (sig2 == 0):
-            logger.warning("{}: zero variance computed".format(task))
+            logger.warning(f"{task}: zero variance computed")
             return 0., None
         corr[i] = np.sum(diff1*diff2)/(sig1*sig2)
     
     # Find maximum
     maxc, maxi = np.max(corr), np.argmax(corr)
     if maxi == 0 or maxi == params['width']-1:
-        logger.warning("{}: maximum found at edge of search area".format(preamble))
+        logger.warning(f"{preamble}: maximum found at edge of search area")
         return 0., None
     
     # Refine with the power of QUADRATICS!
     kmin = (corr[maxi-1]-corr[maxi])/(corr[maxi-1]+corr[maxi+1]-2*corr[maxi])-0.5
     offset = maxi + kmin - width2 + approx
     
-    logger.debug("{}: offset {} from translated code.".format(preamble, offset))
+    logger.debug(f"{preamble}: offset {offset} from translated code.")
 
     np_corr = np.correlate(s1, s2, mode='same')
     np_maxc = np.max(np_corr)
@@ -140,6 +140,6 @@ def cross_correlate(s1, s2, row, **kwargs):
     np_kmin -= 0.5
     np_offset = np_maxi + np_kmin - len(np_corr)//2 + approx
     
-    logger.info("{}: numpy offset calculated as {}.".format(preamble, np_offset))
+    logger.info(f"{preamble}: numpy offset calculated as {np_offset}.")
     
     return offset, corr

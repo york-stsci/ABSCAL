@@ -123,8 +123,9 @@ from scipy import ndimage
 from scipy.interpolate import interp2d
 
 from abscal.common.args import parse
+from abscal.common.file_utils import get_data_file
 from abscal.common.logging import DEFAULT_LOGGER as logger
-from abscal.common.utils import get_data_file, get_defaults, set_param, set_params, set_image
+from abscal.common.utils import get_defaults, set_param, set_params, set_image
 from abscal.wfc3.util_filter_locate_image import locate_image
 from abscal.wfc3.wfc3_data_table import WFC3DataTable
 
@@ -178,8 +179,7 @@ def set_hdr(hdr, params):
     hdr["WLOFFSET"] = (params['wl_offset'], "Wavelength correction.")
     hdr["ANGLE"] = (params['angle'], "Found angle of spectrum WRT x-axis")
     now = datetime.datetime.now()
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    hdr["HISTORY"] = "Written by calwfc_spec.pro {}".format(now_str)
+    hdr["HISTORY"] = f"Written by calwfc_spec.pro {now.strftime('%Y-%m-%d %H:%M:%S')}"
 
     return hdr
 
@@ -229,13 +229,12 @@ def reduce_flatfield(input_table, params):
 
     grating = input_table['filter']
 
-    np_formatter = {'float_kind':lambda x: "{:8.4f}".format(x)}
-    np_opt = {'max_line_width': 175, 'threshold': 2000000,#}#,
-               'formatter': np_formatter}
+    np_formatter = {'float_kind':lambda x: f"{x:8.4f}"}
+    np_opt = {'max_line_width': 175, 'threshold': 2000000, 'formatter': np_formatter}
 
-    preamble = "{}: {}: {}".format(task, root, grating)
+    preamble = f"{task}: {root}: {grating}"
 
-    logger.info("{}: starting".format(preamble))
+    logger.info(f"{preamble}: starting")
 
     # Create an array for quadratic fits of SED
     coef3 = np.zeros((1014, 1014), dtype='float64')
@@ -267,7 +266,7 @@ def reduce_flatfield(input_table, params):
     elif grating == 'G141':
         good = np.where((abswl >= 9000) & (abswl <= 18000))
     else:
-        raise ValueError("Unknown Grating {}".format(grating))
+        raise ValueError(f"Unknown Grating {grating}")
     xgood = x[good]
     ff = np.ones_like(image)
     ns, nl = hdr['naxis1'], hdr['naxis2']
@@ -280,7 +279,7 @@ def reduce_flatfield(input_table, params):
             elif grating == 'G141':
                 good = np.where((abswl[:,i] >= 9000) & (abswl[:,i] <= 18000))
             else:
-                raise ValueError("Unknown Grating {}".format(grating))
+                raise ValueError(f"Unknown Grating {grating}")
             xgood = x[:,i][good]
         ypx = i + int(ltv2)
         coef0i = coef0[ypx,:][xpx]
@@ -290,13 +289,12 @@ def reduce_flatfield(input_table, params):
         ff[i,:][good] = coef0i + coef1i*xgood + coef2i*xgood**2 + coef3i*xgood**3
 
     if ns < 1014:
-        msg = "{}: Subarray w/ ltv1,ltv2 = ({},{})"
-        logger.debug(msg.format(preamble, ltv1, ltv2))
+        logger.debug(f"{preamble}: Subarray w/ ltv1,ltv2 = ({ltv1},{ltv2})")
     ff = np.where(ff<=0.5, 1., ff)
     image = image/ff
-    logger.debug("{}: flatfield for number of wave points {}".format(preamble, ns))
+    logger.debug(f"{preamble}: flatfield for number of wave points {ns}")
 
-    logger.info("{}: finished".format(preamble))
+    logger.info(f"{preamble}: finished")
 
     return image, flat_file
 
@@ -368,10 +366,10 @@ def reduce_wave_axe(row, params):
     ycin = params['yin']
     root = row['root']
     wl_offset = params['wl_offset']
-    preamble = '{}: {}'.format(task, root)
+    preamble = f'{task}: {root}'
     verbose = params['verbose']
 
-    logger.info("{}: starting.".format(preamble))
+    logger.info(f"{preamble}: starting.")
 
     with fits.open(file) as inf:
         image = inf['SCI'].data
@@ -542,11 +540,11 @@ def reduce_wave_axe(row, params):
             if verbose:
                 for i in range(1, len(wave)):
                     if wave[i] < wave[i-1]:
-                        msg = "{}: Not monotonic at {}: {}, {}, {}, {}"
-                        logger.warning(msg.format(preamble, i, wave[i-2], wave[i-1], wave[i], wave[i+1]))
+                        msg = f"{preamble}: Not monotonic at {i}: {wave[i - 2]},"
+                        msg += f" {wave[i - 1]}, {wave[i]}, {wave[i + 1]}"
+                        logger.warning(msg)
             # For now just die on an exception if not monotonic.
-            msg = "Wavelength array {} not monotonic".format(wave)
-            raise ValueError(msg)
+            raise ValueError(f"Wavelength array {wave} not monotonic")
 
         wave += wl_offset
         wav1st += wl_offset
@@ -556,8 +554,9 @@ def reduce_wave_axe(row, params):
             iend = ltv1 + ns - 1
             wave = wave[ibeg:iend]
             wav1st = wav1st[ibeg:iend]
-            msg = "{}: wave minmax = {},{} Ref. (1014)px at ({},{})"
-            logger.debug(msg.format(preamble, min(wave), max(wave), xc, yc))
+            msg = f"{preamble}: wave minmax = {min(wave)},{max(wave)} Ref. (1014)px at"
+            msg += f" ({xc},{yc})"
+            logger.debug(msg)
 
     with fits.open(file, mode='update') as f:
         f[0].header['XC'] = (xcin, 'Dir img ref X position used for AXE WLs')
@@ -571,7 +570,7 @@ def reduce_wave_axe(row, params):
 #         f[0].header['A0p3RD'] = (a0p3[0], 'Constant Term of the +3rd order disp.')
 #         f[0].header['A1p3RD'] = (a1p3[0], 'Linear Term of the +3rd order disp.')
 
-    logger.info("{}: finishing.".format(preamble))
+    logger.info(f"{preamble}: finishing.")
 
     return x_arr, wave, angle, wav1st
 
@@ -611,17 +610,16 @@ def reduce_wave_zord(row, params):
     """
     task = "wfc3_grism_reduce_wave_zord"
     root = row['root']
-    preamble = "{}: {}".format(task, root)
+    preamble = f"{task}: {root}"
     file = os.path.join(row["path"], row["filename"])
     zxposin = params['xin']
     zyposin = params['yin']
     verbose = params['verbose']
 
-    np_formatter = {'float_kind':lambda x: "{:7.1f}".format(x)}
-    np_opt = {'max_line_width': 175, 'formatter': np_formatter,
-              'threshold': 2000000}
+    np_formatter = {'float_kind': lambda x: f"{x:7.1f}"}
+    np_opt = {'max_line_width': 175, 'formatter': np_formatter, 'threshold': 2000000}
 
-    logger.info("{}: starting.".format(preamble))
+    logger.info(f"{preamble}: starting.")
 
     with fits.open(file) as inf:
         image = inf['SCI'].data
@@ -632,8 +630,7 @@ def reduce_wave_zord(row, params):
         if image.shape[1] < 1014:
             ltv1, ltv2 = inf[1].header['ltv1'], inf[1].header['ltv2']
             zxpos, zypos = zxposin + ltv1, zyposin + ltv2
-            msg = "{}: subarray shifts Z-ord ref px by ({},{})"
-            logger.debug(msg.format(preamble, ltv1, ltv2))
+            logger.debug(f"{preamble}: subarray shifts Z-ord ref px by ({ltv1},{ltv2})")
 
         if filter == 'G102':
 
@@ -712,13 +709,13 @@ def reduce_wave_zord(row, params):
         if not (np.all(dx<=0) or (np.all(dx>=0))):
             for i in range(1, len(wave)):
                 if wave[i] < wave[i-1]:
-                    msg = "{}: Not monotonic at {}: {}-{}"
-                    logger.error(msg.format(preamble, i, wave[i-1], wave[i]))
+                    msg = f"{preamble}: Not monotonic at {i}: {wave[i - 1]}-{wave[i]}"
+                    logger.error(msg)
             # For now just die on an exception if not monotonic.
             msg = "Wavelength array {} not monotonic".format(wave)
             raise ValueError(msg)
 
-        logger.info("{}: Adding offset {}".format(preamble, params['wl_offset']))
+        logger.info(f"{preamble}: Adding offset {params['wl_offset']}")
         wave += params['wl_offset']
         wav1st += params['wl_offset']
 
@@ -727,8 +724,9 @@ def reduce_wave_zord(row, params):
             iend = ltv1 + ns - 1
             wave = wave[ibeg:iend]
             wav1st = wav1st[ibeg:iend]
-            msg = "{}: Wave minmax = {},{} Ref. (1014)px at ({},{})"
-            logger.debug(msg.format(preamble, min(wave), max(wave), xc, yc))
+            msg = f"{preamble}: Wave minmax = {min(wave)},{max(wave)} Ref."
+            msg += f" (1014)px at ({xc},{yc})"
+            logger.debug(msg)
 
     with fits.open(file, mode='update') as f:
         f[0].header['B+1ST'] = (bp1, 'Constant Term of the +1st order disp.')
@@ -738,7 +736,7 @@ def reduce_wave_zord(row, params):
         f[0].header['B+2ND'] = (bp2, 'Constant Term of the +2nd order disp.')
         f[0].header['M+2ND'] = (mp2, 'Linear Term of the +2nd order disp.')
 
-    logger.info("{}: finishing.".format(preamble))
+    logger.info(f"{preamble}: finishing.")
 
     return x_arr, wave, angle, wav1st
 
@@ -1006,12 +1004,12 @@ def reduce_stare(row, params, **kwargs):
     ref = row['filter_root']
     filter = row['filter']
 
-    preamble = '{}: {}'.format(task, root)
+    preamble = f'{task}: {root}'
 
-    np_formatter = {'float_kind':lambda x: "{:8.2f}".format(x)}
+    np_formatter = {'float_kind': lambda x: f"{x:8.2f}"}
     np_opt = {'max_line_width': 175, 'formatter': np_formatter, 'threshold': 2000000}
 
-    logger.info("{}: starting {}.".format(preamble, row['filename']))
+    logger.info(f"{preamble}: starting {row['filename']}.")
 
     with fits.open(file) as inf:
         image = inf['SCI'].data
@@ -1024,7 +1022,7 @@ def reduce_stare(row, params, **kwargs):
         ltv1, ltv2 = inf[1].header['LTV1'], inf[1].header['LTV2']
 
         if inf[0].header["IMAGETYP"] == "FLAT":
-            logger.debug("{}: IMAGETYP=FLAT".format(preamble))
+            logger.debug(f"{preamble}: IMAGETYP=FLAT")
             good = np.where(time>0.)
             image[good] = image[good] / time[good]
             err[good] = err[good] / time[good]
@@ -1035,8 +1033,9 @@ def reduce_stare(row, params, **kwargs):
         x1, y1 = targ[1][0], targ[0][0]
         refpx1, refpx2 = inf[1].header['crpix1']-1, inf[1].header['crpix2']-1
         xdither, ydither = x1-refpx1, y1-refpx2
-        msg = "{}: x,y-dither from dir image at ({},{}) is ({},{}) px."
-        logger.debug(msg.format(preamble, refpx1, refpx2, xdither, ydither))
+        msg = f"{preamble}: x,y-dither from dir image at ({refpx1},{refpx2}) is"
+        msg += f" ({xdither},{ydither}) px."
+        logger.debug(msg)
         if (params['xc'] < 0 and 'xc' in params['set']) or \
            (params['yc'] < 0 and 'yc' in params['set']):
             msg = " No/Bad result in locating target from filter image."
@@ -1045,8 +1044,7 @@ def reduce_stare(row, params, **kwargs):
                 if item in params['set']:
                     params['set'].remove(item)
         if 'xc' not in params['set'] or 'yc' not in params['set']:
-            msg = "{}: {}: manually searching for target image."
-            logger.warning(msg.format(task, row['root']))
+            logger.warning(f"{task}: {row['root']}: manually searching for target image.")
             tra = float(row['ra_targ'])
             tdec = float(row['dec_targ'])
             targ = img_wcs.wcs_world2pix([tra], [tdec], 0, ra_dec_order=True)
@@ -1065,22 +1063,19 @@ def reduce_stare(row, params, **kwargs):
         if isinstance(yerr, np.ndarray):
             yerr = yerr[0]
 
-        msg = "{}: {}: Predicted target image position ({},{})"
-        logger.debug(msg.format(task, row['root'], ix, iy))
+        msg = f"{task}: {row['root']}: Predicted target image position ({ix},{iy})"
+        logger.debug(msg)
         ix += xerr
         iy += yerr
-        msg = "{}: {}: Including error, predicted position is ({},{})"
-        logger.info(msg.format(task, row['root'], ix, iy))
+        msg = f"{task}: {row['root']}: Including error, predicted position is ({ix},{iy})"
+        logger.info(msg)
         xc, yc = ix - params['ix_shift'], iy - params['iy_shift']
         xastr, yastr = xc, yc
 
         if (xc < 4 or yc < 4 or xc > 998 or yc > 998):
-            msg = "{}: Predicted Z-ord position ({},{}) is off grism."
-            logger.warning(msg.format(preamble, xc, yc))
-            msg = "\tDistortion-sensitive measured position ({},{})"
-            logger.warning(msg.format(xdither, ydither))
-            msg = "\tUse Predicted position ({},{}) per astrometry"
-            logger.warning(msg.format(ix, iy))
+            logger.warning(f"{preamble}: Predicted Z-ord position ({xc},{yc}) is off grism.")
+            logger.warning(f"\tDistortion-sensitive measured position ({xdither},{ydither})")
+            logger.warning(f"\tUse Predicted position ({ix},{iy}) per astrometry")
             wave_params = {
                             'xin': ix,
                             'yin': iy,
@@ -1088,13 +1083,11 @@ def reduce_stare(row, params, **kwargs):
                             'verbose': verbose
                           }
             x_arr, wave, angle, wav1st = reduce_wave_axe(row, wave_params)
-            msg = '{}: WAVELENGTH solution per AXE coef. No Z-order.'
-            logger.warning(msg.format(preamble))
+            logger.warning(f'{preamble}: WAVELENGTH solution per AXE coef. No Z-order.')
             axeflg = True
         else:
-            msg = '{}: 1st Z-ord centroid from astrom+ Petro starts at '
-            msg += '({},{})'
-            logger.debug(msg.format(preamble, xc, yc))
+            msg = f'{preamble}: 1st Z-ord centroid from astrom+ Petro starts at ({xc},{yc})'
+            logger.debug(msg)
 
             xbeg, ybeg = int(round(xc)), int(round(yc))
             xb, xe = max(xbeg-20, 0), min(xbeg+20, image.shape[1])
@@ -1110,17 +1103,17 @@ def reduce_stare(row, params, **kwargs):
             ibeg = max(xbeg-ns//2, 0)
             iend = xbeg+ns//2
 
-            logger.debug("{}: Testing centroiding methods...".format(preamble))
+            logger.debug(f"{preamble}: Testing centroiding methods...")
 
             xp, yp = centroid_sources(image, xc, yc, box_size=ns, centroid_func=g1)
             x_g1, y_g1 = xp[0], yp[0]
-            logger.debug("\t1d Gaussian: xc,yc={},{}".format(x_g1, y_g1))
+            logger.debug(f"\t1d Gaussian: xc,yc={x_g1},{y_g1}")
             xp, yp = centroid_sources(image, xc, yc, box_size=ns, centroid_func=g2)
             x_g2, y_g2 = xp[0], yp[0]
-            logger.debug("\t2d Gaussian: xc,yc={},{}".format(x_g2, y_g2))
+            logger.debug(f"\t2d Gaussian: xc,yc={x_g2},{y_g2}")
             xp, yp = centroid_sources(image, xc, yc, box_size=ns, centroid_func=com)
             x_com, y_com = xp[0], yp[0]
-            logger.debug("\t2d Centre of Mass: xc,yc={},{}".format(x_com, y_com))
+            logger.debug(f"\t2d Centre of Mass: xc,yc={x_com},{y_com}")
 
             x_dao, y_dao = -1, -1
             try:
@@ -1129,15 +1122,15 @@ def reduce_stare(row, params, **kwargs):
                 star_table = star_finder.find_stars(sbimg)
                 x_dao = star_table['xcentroid'][0] + xb
                 y_dao = star_table['ycentroid'][0] + yb
-                logger.debug("\tDAOFind: xc={}, yc={}".format(x_dao, y_dao))
+                logger.debug(f"\tDAOFind: xc={x_dao}, yc={y_dao}")
 
-                np_formatter = {'float_kind':lambda x: "{:10.6f}".format(x)}
+                np_formatter = {'float_kind':lambda x: f"{x:10.6f}"}
                 star_opt = {'max_line_width': 375, 'formatter': np_formatter,
                             'threshold': 2000000}
 
             except Exception as e:
                 # probably the issue is being unable to find a point source.
-                logger.warning("\tDAOFind Failed: {}".format(e))
+                logger.warning(f"\tDAOFind Failed: {e}")
 
             if show_plots:
                 if row['planetary_nebula'] == "True":
@@ -1150,8 +1143,8 @@ def reduce_stare(row, params, **kwargs):
                 fig, ax = plt.subplots()
                 fig.subplots_adjust(bottom=0.2)
 
-                targ_str = "{} - {} ({})".format(root, target, filter)
-                ax.set_title('{} Direct Image with Detected Source'.format(targ_str))
+                targ_str = f"{root} - {target} ({filter})"
+                ax.set_title(f'{targ_str} Direct Image with Detected Source')
                 plt.imshow(np.log10(np.where(image>=0.1,image,0.1)), origin='lower')
                 if x_dao > 0 and y_dao > 0:
                     plt.plot([x_dao, x_dao], [y_dao-8, y_dao-18], color='red',
@@ -1205,30 +1198,29 @@ def reduce_stare(row, params, **kwargs):
 
                 cmd = cmd["choice"]
 
-                msg = "{}: Chosen centroiding method is {}.".format(preamble, cmd)
-                logger.info(msg)
+                logger.info(f"{preamble}: Chosen centroiding method is {cmd}.")
 
                 if cmd == "1":
                     xc, yc = x_dao, y_dao
-                    logger.debug("\tCentroid set to DAO at ({},{})".format(xc, yc))
+                    logger.debug(f"\tCentroid set to DAO at ({xc},{yc})")
                 elif cmd == "2":
                     xc, yc = x_g1, y_g1
-                    logger.debug("\tCentroid set to 1D Gaussian at ({},{})".format(xc, yc))
+                    logger.debug(f"\tCentroid set to 1D Gaussian at ({xc},{yc})")
                 elif cmd == "3":
                     xc, yc, = x_g2, y_g2
-                    logger.debug("\tCentroid set to 2d Gaussian at ({},{})".format(xc, yc))
+                    logger.debug(f"\tCentroid set to 2d Gaussian at ({xc},{yc})")
                 elif cmd == "4":
                     xc, yc = x_com, y_com
-                    logger.debug("\tCentroid set to Centre of Mass at ({},{})".format(xc, yc))
+                    logger.debug(f"\tCentroid set to Centre of Mass at ({xc},{yc})")
                 else:
                     if row['planetary_nebula'] == 'True':
                         xc, yc = x_com, y_com
-                        logger.debug("\tCentroid set to Centre of Mass at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to Centre of Mass at ({xc},{yc})")
                     else:
                         xc, yc = x_dao, y_dao
-                        logger.debug("\tCentroid set to DAO at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to DAO at ({xc},{yc})")
             else:
-                logger.info("{}: Using default centroiding".format(preamble))
+                logger.info(f"{preamble}: Using default centroiding")
                 # Default ordering:
                 # For planetary nebulae:
                 #   - daofind may or may not work
@@ -1243,39 +1235,39 @@ def reduce_stare(row, params, **kwargs):
                 if row['planetary_nebula'] == 'True':
                     if x_com > 0 and y_com > 0:
                         xc, yc = x_com, y_com
-                        logger.debug("\tCentroid set to Centre of Mass at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to Centre of Mass at ({xc},{yc})")
                     elif x_g2 > 0 and y_g2 > 0:
                         xc, yc, = x_g2, y_g2
-                        logger.debug("\tCentroid set to 2d Gaussian at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to 2d Gaussian at ({xc},{yc})")
                     elif x_g1 > 0 and y_g1 > 0:
                         xc, yc = x_g1, y_g1
-                        logger.debug("\tCentroid set to 1D Gaussian at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to 1D Gaussian at ({xc},{yc})")
                     elif x_dao > 0 and y_dao > 0:
                         xc, yc = x_dao, y_dao
-                        logger.debug("\tCentroid set to DAO at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to DAO at ({xc},{yc})")
                     else:
                         xc, yc = -1, -1
-                        logger.debug("\tCentroid set to Not Found at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to Not Found at ({xc},{yc})")
                 else:
                     if x_dao > 0 and y_dao > 0:
                         xc, yc = x_dao, y_dao
-                        logger.debug("\tCentroid set to DAO at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to DAO at ({xc},{yc})")
                     elif x_com > 0 and y_com > 0:
                         xc, yc = x_com, y_com
-                        logger.debug("\tCentroid set to Centre of Mass at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to Centre of Mass at ({xc},{yc})")
                     elif x_g2 > 0 and y_g2 > 0:
                         xc, yc, = x_g2, y_g2
-                        logger.debug("\tCentroid set to 2d Gaussian at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to 2d Gaussian at ({xc},{yc})")
                     elif x_g1 > 0 and y_g1 > 0:
                         xc, yc = x_g1, y_g1
-                        logger.debug("\tCentroid set to 1D Gaussian at ({},{})".format(xc, yc))
+                        logger.debug(f"\tCentroid set to 1D Gaussian at ({xc},{yc})")
                     else:
                         xc, yc = -1, -1
-                        logger.warning("\tCentroid set to Not Found at ({},{})".format(xc, yc))
+                        logger.warning(f"\tCentroid set to Not Found at ({xc},{yc})")
 
             if xc < ibeg or xc > iend:
-                msg = "{}: Peak too close to edge. Use approx. pos ({},{})"
-                logger.warning(msg.format(preamble, xbeg, ybeg))
+                msg = f"{preamble}: Peak too close to edge. Use approx. pos ({xbeg},{ybeg})"
+                logger.warning(msg)
                 xc, yc = xbeg, ybeg
 
             wave_params = {
@@ -1285,10 +1277,10 @@ def reduce_stare(row, params, **kwargs):
                             'verbose': verbose
                           }
             x_arr, wave, angle, wav1st = reduce_wave_zord(row, wave_params)
-            msg = "{}: Zero-ord centroid at ({},{})"
-            logger.info(msg.format(preamble, xc, yc))
-            logger.debug("\tSearch area {}X{} pix".format(ns, ns))
-            logger.debug("\tX,Y astrom error=({},{})".format(xastr-xc, yastr-yc))
+            msg = f"{preamble}: Zero-ord centroid at ({xc},{yc})"
+            logger.info(msg)
+            logger.debug(f"\tSearch area {ns}X{ns} pix")
+            logger.debug(f"\tX,Y astrom error=({xastr - xc},{yastr - yc})")
             axeflg = False
 
             # Update the table with the fit values.
@@ -1311,14 +1303,13 @@ def reduce_stare(row, params, **kwargs):
         # *****
 
         # Get flatfield data cube
-        logger.info("{}: Beginning flatfield.".format(preamble))
+        logger.info(f"{preamble}: Beginning flatfield.")
         cal_data = get_data_file("abscal.wfc3", "calibration_files.yaml")
         with open(cal_data, 'r') as inf:
             cal_files = yaml.safe_load(inf)
         flat_file_name = cal_files["flatfield"][row["filter"]]
         flat_file = get_data_file("abscal.wfc3", flat_file_name, subdir="wfcref")
-        msg = "{}: wfc_flatscl: Using flatfield {}"
-        logger.info(msg.format(preamble, flat_file_name))
+        logger.info(f"{preamble}: wfc_flatscl: Using flatfield {flat_file_name}")
 
         issues = {}
         flatscal_omit_file = get_data_file("abscal.wfc3", "image_edits.yaml")
@@ -1351,33 +1342,33 @@ def reduce_stare(row, params, **kwargs):
             avrat = np.mean(rat[sc_low:sc_high])
             sigma = np.std(rat[sc_low:sc_high])
             avgbkg = np.mean(smimav[sc_low:sc_high])*params['gwidth']
-            msg = "{}: wfc_flatscl: Avg bkg = {} +/- {} for gwidth={}"
-            logger.debug(msg.format(preamble, avgbkg, sigma, params['gwidth']))
-            msg = "{}: wfc_flatscl: Flatfield Scale Ratio = {}"
-            logger.debug(msg.format(preamble, avrat))
+            msg = f"{preamble}: wfc_flatscl: Avg bkg = {avgbkg} +/- {sigma} for"
+            msg += f" gwidth={params['gwidth']}"
+            logger.debug(msg)
+            logger.debug(f"{preamble}: wfc_flatscl: Flatfield Scale Ratio = {avrat}")
             
             if avrat > 3.:
                 if show_plots:
                     done = False
                     while not done:
-                        msg = "{}: Average background calculated at {} (>3). Press enter "
-                        msg += "to proceed or enter a new value to override."
-                        value = input(msg.format(preamble, avrat))
+                        msg = f"{preamble}: Average background calculated at {avrat} (>3)."
+                        msg += " Press enter to proceed or enter a new value to override."
+                        value = input(msg)
                         if value == "":
                             done = True
                         else:
                             try:
                                 avrat = float(value)
                             except ValueError as e:
-                                logger.error("ERROR: {}".format(e))
+                                logger.error(f"ERROR: {e}")
                                 msg = "Press enter to accept the current value, or enter "
                                 msg += "a new value as a floating point number."
                                 logger.error(msg)
         else:
-            logger.info("{}: Set flat to 0 by override.".format(preamble))
+            logger.info(f"{preamble}: Set flat to 0 by override.")
 
         flat *= avrat
-        logger.info("{}: Finished flatfield".format(preamble))
+        logger.info(f"{preamble}: Finished flatfield")
         # ***** End of wfc_flatscal.pro
 
         image -= flat
@@ -1431,7 +1422,7 @@ def reduce_stare(row, params, **kwargs):
                 yfound[0] = -yc
 
             for iord in [-1, 1, 2]:
-                logger.debug("{}: Starting iord={}".format(preamble, iord))
+                logger.debug(f"{preamble}: Starting iord={iord}")
                 wlrangs = {
                             -1: ['wlrang_m1_low', 'wlrang_m1_high'],
                              1: ['wlrang_p1_low', 'wlrang_p1_high'],
@@ -1459,8 +1450,8 @@ def reduce_stare(row, params, **kwargs):
                     x1, x2 = x1bin[iord], x2bin[iord]
                     y1 = max(int(round(yapprox[(x1+x2)//2]))-params['ywidth']//2, 0)
                     y2 = min((y1 + params['ywidth']-1), (ysize-1))
-                    msg = "{}: iord={}; x,y search range=({},{}), ({},{})"
-                    logger.debug(msg.format(preamble, iord, x1, x2, y1, y2))
+                    msg = f"{preamble}: iord={iord}; x,y search range=({x1},{x2}), ({y1},{y2})"
+                    logger.debug(msg)
                     y1pred = 0
                     if iord == 1:
                         y1pred = yapprox[(x1+x2)//2]
@@ -1469,8 +1460,7 @@ def reduce_stare(row, params, **kwargs):
                         ydel -= yapprox[(x1bin[iord-1]+x2bin[iord-1])//2]
                         y1 = int(round(y1+ydel))
                         y2 = int(round(y2+ydel))
-                        msg = "\t2nd ord yposit tweak yrange={},{} by {}"
-                        logger.debug(msg.format(y1, y2, ydel))
+                        logger.debug(f"\t2nd ord yposit tweak yrange={y1},{y2} by {ydel}")
                     ny = y2 - y1 + 1
 
                     profile = np.zeros((ny,), dtype='float64')
@@ -1494,13 +1484,11 @@ def reduce_stare(row, params, **kwargs):
                         yprofile = np.arange(ny, dtype='int16') + y1
                         pmax, maxpos = np.max(profile), np.argmax(profile)
                         if pmax <= 0:
-                            err = "{}: ERROR in Profile ".format(preamble)
-                            err += "Iteration at {}. Maximum ".format(iter)
-                            err += "value of profile is negative."
-                            err += "Profile={}".format(profile)
+                            err = f"{preamble}: ERROR in Profile Iteration at {iter}."
+                            err += f" Maximum value of profile is negative. Profile={profile}"
                             raise ValueError(err)
-                        msg = "{}: Profile maximum {} at {} ({})"
-                        logger.debug(msg.format(preamble, pmax, maxpos, yprofile[maxpos]))
+                        msg = f"{preamble}: Profile maximum {pmax} at {maxpos} ({yprofile[maxpos]})"
+                        logger.debug(msg)
                         if maxpos <= 0 or maxpos > ny or pmax <= 2:
                             yfound[iord] = -999
                         else:
@@ -1509,8 +1497,8 @@ def reduce_stare(row, params, **kwargs):
                             yfound[iord] = np.sum(yp*pf)/np.sum(pf)
                         if show_plots:
                             xf, yf = xfound[iord], yfound[iord]
-                            msg = "{}: order {}, ".format(preamble, iord)
-                            msg += "contin. x,y position=({},{})".format(xf, yf)
+                            msg = f"{preamble}: order {iord}, contin."
+                            msg += f" x,y position=({xf},{yf})"
                             logger.info(msg)
 
                         if iord == 1 and yfound[iord] == -999 and iter == 1:
@@ -1521,8 +1509,7 @@ def reduce_stare(row, params, **kwargs):
                                 ceiling = (ysize - params['ywidth'] - 1)
                                 y1 = min(guess, ceiling)
                             y2 = min((y1 + params['ywidth'] - 1), (ysize-1))
-                            msg = "{}: Iterating with search ({},{})"
-                            logger.debug(msg.format(preamble, y1, y2))
+                            logger.debug(f"{preamble}: Iterating with search ({y1},{y2})")
                         else:
                             iterate = False
 
@@ -1530,7 +1517,7 @@ def reduce_stare(row, params, **kwargs):
                     # BY NOTE: Removed interactivity.
                     if iord == -1 and (maxpos <= 2 or maxpos > 8):
                         yfound[iord] = -999
-                        logger.warning("{}: Omitting bad -1 order position.".format(preamble))
+                        logger.warning(f"{preamble}: Omitting bad -1 order position.")
 
                     # Standard continuum technique (above) fails for planetary
                     #   nebula emission lines and faint -1 order. So, instead,
@@ -1542,20 +1529,18 @@ def reduce_stare(row, params, **kwargs):
                         nsamp = int(x2-x1+1)
                         xfound[nbins] = x1 + xpos
                         yfound[nbins] = y1 + ypos
-                        logger.debug("{}: Planetary Nebula".format(preamble))
-                        msg = "\tEmission Line at {},{} for order=-1"
-                        logger.debug(msg.format(xfound[nbins], yfound[nbins]))
+                        logger.debug(f"{preamble}: Planetary Nebula")
+                        msg = f"\tEmission Line at {xfound[nbins]},{yfound[nbins]} for order=-1"
+                        logger.debug(msg)
 
                     if show_plots:
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
-                        targ_str = "{} - {} ({})".format(root, target, filter)
-                        ax.set_title('{}: Trace Image'.format(targ_str))
+                        ax.set_title(f'{root} - {target} ({filter}): Trace Image')
                         plt.xlabel("Y (column) Pixel (px)")
                         plt.ylabel("Signal")
                         ax.scatter(yprofile, profile)
-                        ax.text(.15, .88, 'order={}'.format(iord),
-                                transform=ax.transAxes)
+                        ax.text(.15, .88, f'order={iord}', transform=ax.transAxes)
                         plt.show()
                 # end if npts > 50
             # end iord loop
@@ -1567,16 +1552,15 @@ def reduce_stare(row, params, **kwargs):
                 if iord in xfound and iord in yfound:
                     if xfound[iord] >= 4 and yfound[iord] >= 0:
                         good.append(iord)
-            logger.info("{}: Initial good orders are {}".format(preamble, good))
+            logger.info(f"{preamble}: Initial good orders are {good}")
 
             if len(good) == 1:
-                msg = "{}: Only one order. ".format(preamble)
-                msg += "Try using predicted Z-order position. Adjust "
-                msg += "Z-order for Y error in first order. "
-                msg += "Found={}, pred={}, found-pred={}."
-                logger.debug(msg.format(yfound[1], y1pred, yfound[1]-y1pred))
-                msg = "\tWLs differ by <1A for corr. dir img at {},{}"
-                logger.debug(msg.format(ix, yfound[0]))
+                msg = f"{preamble}: Only one order. Try using predicted Z-order position."
+                msg += f" Adjust Z-order for Y error in first order. Found={yfound[1]}, "
+                msg += f"pred={y1pred}, found-pred={yfound[1] - y1pred}."
+                logger.debug(msg)
+                msg = f"\tWLs differ by <1A for corr. dir img at {ix},{yfound[0]}"
+                logger.debug(msg)
                 yfound[0] = abs(yfound[0]) + (yfound[1]-y1pred)
 
             # This time allow negative found positions, and allow the zeroth
@@ -1586,12 +1570,11 @@ def reduce_stare(row, params, **kwargs):
                 if iord in xfound and iord in yfound:
                     if xfound[iord] >= -500 and yfound[iord] != 0 and yfound[iord] != -999:
                         good.append(iord)
-            logger.info("{}: Final good orders are {}".format(preamble, good))
+            logger.info(f"{preamble}: Final good orders are {good}")
 
             if len(good) <= 1:
-                msg = "{}: Only one order. ".format(preamble)
-                msg += "Cannot measure spectral angle for subarray of "
-                msg += "({},{}). Aborting.".format(xsize, ysize)
+                msg = f"{preamble}: Only one order. Cannot measure spectral angle for"
+                msg += f" subarray of ({xsize},{ysize}). Aborting."
                 raise ValueError(msg)
 
             if (len(good) >= 3) and axeflg:
@@ -1600,8 +1583,7 @@ def reduce_stare(row, params, **kwargs):
                     if iord in xfound and iord in yfound:
                         if yfound[iord] > 0:
                             good.append(iord)
-                msg = "{}: {}: PROFILE yfound ".format(task, row['root'])
-                msg += "for AXE case={}".format(yfound)
+                msg = f"{task}: {row['root']}: PROFILE yfound for AXE case={yfound}"
                 logger.debug(msg)
             else:
                 for iord in [-1, 0, 1, 2]:
@@ -1610,8 +1592,7 @@ def reduce_stare(row, params, **kwargs):
 
             poly_x = np.array([xfound[i] for i in good])
             poly_y = np.array([yfound[i] for i in good])
-            msg = "{}: X and Y found values: {}, {}"
-            logger.info(msg.format(preamble, poly_x, poly_y))
+            logger.info(f"{preamble}: X and Y found values: {poly_x}, {poly_y}")
             coef = np.polyfit(poly_x, poly_y, 1)
             angle = np.arctan(coef[0])
             deg_angle = np.arctan(coef[0])*180./np.pi
@@ -1621,18 +1602,16 @@ def reduce_stare(row, params, **kwargs):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 t_axes = ax.transAxes
-                targ_str = "{} - {} ({})".format(root, target, filter)
-                ax.set_title('{}: Fit Plot'.format(targ_str))
+                ax.set_title(f'{root} - {target} ({filter}): Fit Plot')
                 plt.xlabel("X-pixel (px)")
                 plt.ylabel("Y-pixel (px)")
                 ax.scatter(poly_x, poly_y, label="Found Orders")
                 ax.plot(x_arr, yapprox, label="Initial Trace Approximation")
                 ax.plot(x_arr, yfit, label="Fitted Trace")
-                ax.text(.7, .15, 'angle={:.3f}'.format(deg_angle), transform=t_axes)
+                ax.text(.7, .15, f'angle={deg_angle:.3f}', transform=t_axes)
                 ax.legend()
                 plt.show()
-                msg = "{}: {}:, angle={}"
-                logger.debug(msg.format(preamble, filter, deg_angle))
+                logger.debug(f"{preamble}: {filter}:, angle={deg_angle}")
         else:
             # Don't fit slope. Create coefficients based on supplied slope and intercept.
             # Coefficients are slope, intercept
@@ -1644,20 +1623,18 @@ def reduce_stare(row, params, **kwargs):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 t_axes = ax.transAxes
-                targ_str = "{} - {} ({})".format(root, target, filter)
-                ax.set_title('{}: Fit Plot'.format(targ_str))
+                ax.set_title(f'{root} - {target} ({filter}): Fit Plot')
                 plt.xlabel("X-pixel (px)")
                 plt.ylabel("Y-pixel (px)")
                 ax.plot(x_arr, yapprox, label="Initial Trace Approximation")
                 ax.plot(x_arr, yfit, label="Fitted Trace")
-                ax.text(.7, .15, 'angle={:.3f}'.format(deg_angle), transform=t_axes)
+                ax.text(.7, .15, f'angle={deg_angle:.3f}', transform=t_axes)
                 ax.legend()
                 plt.show()
-                msg = "{}: {}:, angle={}"
-                logger.debug(msg.format(preamble, filter, deg_angle))
+                logger.debug(f"{preamble}: {filter}:, angle={deg_angle}")
 
         # Extract Background Spectra
-        logger.info("{}: Extract background spectra".format(preamble))
+        logger.info(f"{preamble}: Extract background spectra")
         ns = len(x_arr)
         nsb = ns
         x_b = deepcopy(x_arr)
@@ -1730,74 +1707,69 @@ def reduce_stare(row, params, **kwargs):
         up_fit = p(x_b_f)
 
         sigless = min(lo_error, up_error)
-        msg = "{}: loerr={}, uperr={}, sigless={}"
-        logger.debug(msg.format(preamble, lo_error, up_error, sigless))
+        logger.debug(f"{preamble}: loerr={lo_error}, uperr={up_error}, sigless={sigless}")
 
         # Second Pass
         good_lo = np.where(np.abs(s_back_lo-lo_fit) < sigless)
         n_good_lo = len(good_lo[0])
-        msg = "{}: {} of {} low bkg points have residual < standard error."
-        logger.debug(msg.format(preamble, n_good_lo, len(lo_fit)))
+        msg = f"{preamble}: {n_good_lo} of {len(lo_fit)} low bkg points have "
+        msg += "residual < standard error."
+        logger.debug(msg)
         lo_res = np.polyfit(x_b_f[good_lo], s_back_lo[good_lo], 6, full=True)
         lo_coef = lo_res[0]
         lo_error = np.sqrt(lo_res[1]/(n_good_lo-2))[0]
-        msg = "{}: Lower fit has error {} on second pass."
-        logger.debug(msg.format(preamble, lo_error))
-        msg = "{}: Lower fit has coefficients {}"
-        logger.debug(msg.format(preamble, lo_coef))
+        logger.debug(f"{preamble}: Lower fit has error {lo_error} on second pass.")
+        logger.debug(f"{preamble}: Lower fit has coefficients {lo_coef}")
         p = np.poly1d(lo_coef)
         lo_fit = p(x_b_f)
 
         good_up = np.where(np.abs(s_back_up-up_fit) < sigless)
         n_good_up = len(good_up[0])
-        msg = "{}: {} of {} high bkg points have residual < standard error."
-        logger.debug(msg.format(preamble, n_good_up, len(up_fit)))
+        msg = f"{preamble}: {n_good_up} of {len(up_fit)} high bkg points have "
+        msg += "residual < standard error."
+        logger.debug(msg)
         up_res = np.polyfit(x_b_f[good_up], s_back_up[good_up], 6, full=True)
         up_coef = up_res[0]
         up_error = np.sqrt(up_res[1]/(n_good_up-2))[0]
-        msg = "{}: Upper fit has error {} on second pass."
-        logger.debug(msg.format(preamble, up_error))
-        msg = "{}: Upper fit has coefficients {}"
-        logger.debug(msg.format(preamble, up_coef))
+        logger.debug(f"{preamble}: Upper fit has error {up_error} on second pass.")
+        logger.debug(f"{preamble}: Upper fit has coefficients {up_coef}")
         p = np.poly1d(up_coef)
         up_fit = p(x_b_f)
 
         lo_slp = lo_coef[2] + 2*lo_coef[1]*x_b_f + 3*lo_coef[0]*x_b_f*x_b_f
         up_slp = up_coef[2] + 2*up_coef[1]*x_b_f + 3*up_coef[0]*x_b_f*x_b_f
 
-        msg = "{}: {} points, {} good low points, {} good high points"
-        logger.debug(msg.format(preamble, nsb, n_good_lo, n_good_up))
+        msg = f"{preamble}: {nsb} points, {n_good_lo} good low points, {n_good_up} good "
+        msg += "high points"
+        logger.debug(msg)
 
         if np.mean(up_fit) < np.mean(lo_fit):
-            logger.debug("{}: Setting initial fit to upper fit".format(preamble))
+            logger.debug(f"{preamble}: Setting initial fit to upper fit")
             s_back = up_fit
         else:
-            logger.debug("{}: Setting initial fit to lower fit".format(preamble))
+            logger.debug(f"{preamble}: Setting initial fit to lower fit")
             s_back = lo_fit
 
         bettr = np.where((abs(up_fit)-abs(s_back) > 3*sigless) & (up_fit < lo_fit))
         if len(bettr[0]) > 0:
-            msg = "{}: Setting {} points to upper fit"
-            logger.debug(msg.format(preamble, len(bettr[0])))
+            logger.debug(f"{preamble}: Setting {len(bettr[0])} points to upper fit")
             s_back[bettr] = up_fit[bettr]
         bettr = np.where((abs(lo_fit)-abs(s_back) > 3*sigless) & (lo_fit < up_fit))
         if len(bettr[0]) > 0:
-            msg = "{}: Setting {} points to lower fit"
-            logger.debug(msg.format(preamble, len(bettr[0])))
+            logger.debug(f"{preamble}: Setting {len(bettr[0])} points to lower fit")
             s_back[bettr] = lo_fit[bettr]
 
         if len(good_lo[0]) < nsb/5:
-            logger.debug("{}: Setting fit to upper fit.".format(preamble))
+            logger.debug(f"{preamble}: Setting fit to upper fit.")
             s_back = up_fit
         if len(good_up[0]) < nsb/5:
-            logger.debug("{}: Setting fit to lower fit.".format(preamble))
+            logger.debug(f"{preamble}: Setting fit to lower fit.")
             s_back = lo_fit
 
         if show_plots:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            targ_str = "{} - {} ({})".format(root, target, filter)
-            ax.set_title("{} Background Fit".format(targ_str))
+            ax.set_title(f"{root} - {target} ({filter}) Background Fit")
             t_axes = ax.transAxes
             ax.scatter(x_b_f[good_lo], s_back_lo[good_lo], label="Low Points")
             ax.plot(x_b_f, lo_fit, label="Low Fit")
@@ -1810,7 +1782,7 @@ def reduce_stare(row, params, **kwargs):
         if (len(good_lo[0]) < nsb/5) and (len(good_up[0]) < nsb/5):
             raise ValueError("Not enough good points to fit.")
         if abs(np.mean(s_back)) > 5:
-            raise ValueError("Warning: High background {}".format(np.mean(s_back)))
+            raise ValueError(f"Warning: High background {np.mean(s_back)}")
 
         # Full image subtraction
         for i in range(nsb):
@@ -1846,8 +1818,7 @@ def reduce_stare(row, params, **kwargs):
 #                 ytmp -= 500
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            targ_str = "{} - {} ({})".format(root, target, filter)
-            ax.set_title('{} Trace Fit on Source'.format(targ_str))
+            ax.set_title(f'{root} - {target} ({filter}) Trace Fit on Source')
             plt.imshow(np.log10(np.where(imagt>=0.1,imagt,0.1)), origin='lower')
             ax.plot(x_arr, ytmp+params['gwidth']//2, color='white', label='Trace')
             ax.plot(x_arr, ytmp-params['gwidth']//2, color='white')
@@ -1865,8 +1836,7 @@ def reduce_stare(row, params, **kwargs):
 #                 ytmp -= 500
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            targ_str = "{} - {} ({})".format(root, target, filter)
-            ax.set_title('{} Trace Fit on DQ'.format(targ_str))
+            ax.set_title(f'{root} - {target} ({filter}) Trace Fit on DQ'.)
             plt.imshow(np.where(imagt.astype(np.uint32) & 24, 1, 0), origin='lower')
             ax.plot(x_arr, ytmp+params['gwidth']//2, color='white', label='Trace')
             ax.plot(x_arr, ytmp-params['gwidth']//2, color='white')
@@ -1919,8 +1889,8 @@ def reduce_stare(row, params, **kwargs):
                 tot_time = np.sum(time[ifull1:ifull2,x_arr[i]]*nn_img[ifull1:ifull2,x_arr[i]])
                 time_weight = np.sum(nn_img[ifull1:ifull2,x_arr[i]])
             else:
-                msg = "{}: For x={} extraction range is {} to {}"
-                logger.debug(msg.format(preamble, i, ifull1, ifull2))
+                msg = f"{preamble}: For x={i} extraction range is {ifull1} to {ifull2}"
+                logger.debug(msg)
                 tot = 0.
                 var = 0.
                 time_weight = 0.
@@ -1935,8 +1905,9 @@ def reduce_stare(row, params, **kwargs):
                 ave_time = tot_time/time_weight
             else:
                 ave_time = np.max(time[iy1:iy2+1,x_arr[i]])
-                msg = "{}: For x={} extraction range=({},{}) time_weight = {}, time set to {}"
-                logger.debug(msg.format(preamble, i, ifull1, ifull2, time_weight, ave_time))
+                msg = f"{preamble}: For x={i} extraction range=({ifull1},{ifull2}) "
+                msg += f"time_weight = {time_weight}, time set to {ave_time}"
+                logger.debug(msg)
             e = 0
             for j in range(iy1, iy2+1):
                 e = e | dq[j,x_arr[i]]
@@ -1963,7 +1934,7 @@ def reduce_stare(row, params, **kwargs):
 #         else:
 #             dcorr = 46.5/disp
         dcorr = 1. # apparently big improvement as of 2018-06-19?
-        logger.info("{}: extraction finished.".format(preamble))
+        logger.info(f"{preamble}: extraction finished.")
 
         flux *= dcorr
         s_back *= dcorr
@@ -1988,8 +1959,7 @@ def reduce_stare(row, params, **kwargs):
         if show_plots:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            targ_str = "{} - {} ({})".format(root, target, filter)
-            ax.set_title('{}: Extracted Spectrum'.format(targ_str))
+            ax.set_title(f'{root} – {target} ({filter}): Extracted Spectrum')
             ax.plot(wave, flux, label='net')
             ax.plot(wave, gross, label='gross')
             ax.plot(wave, s_back, label='background')
@@ -2000,7 +1970,7 @@ def reduce_stare(row, params, **kwargs):
             plt.show()
 
         # Write results
-        extracted_file_name = "{}_{}_x1d.fits".format(row['root'], row['target'])
+        extracted_file_name = f"{row['root']}_{row['target']}_x1d.fits")
 
         x_col = fits.Column(name='x', format='E', array=x_arr)
         fit_col = fits.Column(name='y_fit', format='E', array=yfit)
@@ -2087,7 +2057,7 @@ def reduce(input_table, **kwargs):
     spec_name = kwargs.get('spec_dir', base_defaults['spec_dir'])
     spec_dir = os.path.join(out_dir, spec_name)
 
-    logger.info("{}: Starting WFC3 data reduction for GRISM data.".format(task))
+    logger.info(f"{task}: Starting WFC3 data reduction for GRISM data.")
 
     issues = {}
     exposure_parameter_file = get_data_file("abscal.wfc3", os.path.basename(__file__))
@@ -2099,7 +2069,7 @@ def reduce(input_table, **kwargs):
         root = row['root']
         target = row['target']
         ref = row['filter_root']
-        preamble = "{}: {}".format(task, root)
+        preamble = f"{task}: {root}"
 
         # Don't extract if there's already an extracted version of
         #   the file present.
@@ -2107,26 +2077,22 @@ def reduce(input_table, **kwargs):
             ext_file = os.path.join(out_dir, row['extracted'])
             if os.path.isfile(ext_file):
                 if force:
-                    msg = "{}: {}: extracted file exists. Re-extracting."
-                    logger.info(msg.format(task, root))
+                    logger.info(f"{task}: {root}: extracted file exists. Re-extracting.")
                 else:
-                    msg = "{}: {}: skipping extraction because file exists."
-                    logger.info(msg.format(task, root))
+                    logger.info(f"{task}: {root}: skipping extraction because file exists.")
                     continue
         else:
-            extracted_file_name = "{}_{}_x1d.fits".format(root, target)
+            extracted_file_name = f"{root}_{target}_x1d.fits"
             extracted_dest = os.path.join(spec_dir, extracted_file_name)
 
             # If there is already an extracted file for this input, skip.
             if os.path.isfile(extracted_dest):
                 ext_str = os.path.join(spec_dir, extracted_file_name)
                 if force:
-                    msg = "{}: {}: extracted file exists. Re-extracting."
-                    logger.info(msg.format(task, root))
+                    logger.info(f"{task}: {root}: extracted file exists. Re-extracting.")
                 else:
                     row['extracted'] = ext_str
-                    msg = "{}: {}: skipping extraction because file exists."
-                    logger.info(msg.format(task, root))
+                    logger.info(f"{task}: {root}: skipping extraction because file exists.")
                     continue
 
         # Only reduce grism data in the reduce function.
@@ -2145,9 +2111,9 @@ def reduce(input_table, **kwargs):
                 if 'lbdist' not in params['set']:
                     params['lbdist'] = 25 + params['bwidth']/2
 
-            logger.info("{}: Reducing {} ({})".format(task, root, row['filter']))
+            logger.info(f"{task}: Reducing {root} ({filter})")
 
-            logger.info("{}: Reference Image is {}".format(task, ref))
+            logger.info(f"{task}: Reference Image is {ref}"
             # Only get the position if there
             #   - is a known filter reference (not NONE or unknown)
             #   - that reference is in the table (so we can find it)
@@ -2170,23 +2136,23 @@ def reduce(input_table, **kwargs):
             scan_rate = row['scan_rate']
 
             if scan_rate > 0:
-                logger.info("{}: Reducing SCAN MODE data.".format(task))
+                logger.info(f"{task}: Reducing SCAN MODE data.")
                 reduced = reduce_scan(row, params, **kwargs)
             else:
-                logger.info("{}: Reducing STARE MODE data.".format(task))
+                logger.info(f"{task}: Reducing STARE MODE data.")
                 reduced = reduce_stare(row, params, **kwargs)
 
             for item in ['extracted', 'xc', 'yc', 'xerr', 'yerr']:
                 input_table[item][input_table['root']==row['root']] = reduced[item]
 
         else:
-            msg = "{}: Skipping {} because it's been set to don't use "
-            msg += "(reason: {})."
             if row['filter'][0] != 'G':
-                reason = 'Imaging exposure ({})'.format(row['filter'])
+                reason = f'Imaging exposure ({row["filter"]})'
             else:
                 reason = row['notes']
-            logger.info(msg.format(task, root, reason))
+            msg = f"{task}: Skipping {root} because it's been set to don't use "
+            msg += f"(reason: {reason})."
+            logger.info(msg)
 
     return input_table
 
